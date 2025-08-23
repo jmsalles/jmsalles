@@ -1,19 +1,19 @@
-Perfeito, Jeferson! 👊
-Vou montar um **tutorial unificado** para transformar seu **Rocky Linux 10** em um **roteador de sub-rede Tailscale** para a rede `192.168.31.0/24`, incluindo os ajustes de forwarding e performance.
+Show, Jeferson 👊
+Vou refazer o **tutorial unificado** incluindo o cenário completo: instalação do Tailscale no **servidor Rocky Linux 10** (que vai anunciar a rede 192.168.31.0/24) e configuração correta dos **clientes** para aceitarem e usarem essa rede compartilhada.
 
 ---
 
-# 🚀 Tutorial: Configurando Tailscale como Subnet Router no Rocky Linux 10
+# 🚀 Tutorial Completo: Tailscale Subnet Router + Clientes (Rocky Linux 10)
 
-## 🔹 1. Instalar o Tailscale
+## 🔹 1. Instalação do Tailscale no Servidor (Rocky 10)
 
-Adicione o repositório compatível com Rocky 10 (base RHEL 9):
+Adicione o repositório oficial compatível:
 
 ```bash
 sudo dnf config-manager --add-repo https://pkgs.tailscale.com/stable/rhel/9/tailscale.repo
 ```
 
-Atualize e instale:
+Instale o pacote:
 
 ```bash
 sudo dnf install tailscale -y
@@ -27,53 +27,44 @@ sudo systemctl enable --now tailscaled
 
 ---
 
-## 🔹 2. Habilitar IP Forwarding (IPv4 e IPv6)
+## 🔹 2. Ativar IP Forwarding no Servidor
 
-Edite o arquivo `sysctl.conf`:
+Edite o arquivo de configuração:
 
 ```bash
 sudo vim /etc/sysctl.conf
 ```
 
-Adicione as linhas:
+Adicione:
 
 ```
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
 ```
 
-Aplique sem reboot:
+Aplicar imediatamente:
 
 ```bash
 sudo sysctl -p
 ```
 
-Valide:
-
-```bash
-sysctl net.ipv4.ip_forward
-sysctl net.ipv6.conf.all.forwarding
-```
-
-Deve retornar `1` nos dois.
-
 ---
 
-## 🔹 3. Corrigir Performance de UDP (GRO)
+## 🔹 3. Otimização de rede (UDP GRO)
 
-Verifique sua interface de rede (geralmente `enp0s31f6`):
+Descubra sua interface de rede:
 
 ```bash
 ip a
 ```
 
-Ative GRO:
+Ative GRO (exemplo com `enp0s31f6`):
 
 ```bash
 sudo ethtool -K enp0s31f6 gro on
 ```
 
-Para persistir após reboot, crie o override do systemd:
+Para persistir:
 
 ```bash
 sudo mkdir -p /etc/systemd/system/tailscaled.service.d
@@ -96,63 +87,110 @@ sudo systemctl restart tailscaled
 
 ---
 
-## 🔹 4. Configurar o Tailscale para anunciar a rede local
+## 🔹 4. Configurar o Servidor como Subnet Router
 
-Execute:
+Anuncie a rota local:
 
 ```bash
 sudo tailscale up --advertise-routes=192.168.31.0/24
 ```
 
-Será exibida uma URL — copie e abra no navegador para autenticar com sua conta Tailscale.
+Será exibido um link → abra no navegador, faça login e autorize.
 
 ---
 
-## 🔹 5. Autorizar a rota no Painel Admin
+## 🔹 5. Habilitar a Rota no Admin Console
 
-1. Acesse: [https://login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines)
-2. Ache seu servidor.
-3. Clique em **Enable Subnet Routes** para `192.168.31.0/24`.
+1. Acesse [https://login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines)
+2. Localize o servidor `lenovo-server-linux`.
+3. Ative ✅ a rota `192.168.31.0/24`.
 
 ---
 
-## 🔹 6. Testar Conectividade
+## 🔹 6. Configuração dos Clientes (para aceitar rotas)
 
-De uma máquina cliente Tailscale:
+Por padrão os clientes **não aceitam** rotas anunciadas. É necessário habilitar:
 
 ```bash
-tailscale ip
-tailscale status
-ping 192.168.31.1
-ping 192.168.31.99
+sudo tailscale up --accept-routes
 ```
 
-Se responder, a rede local está roteando corretamente pela VPN. 🎉
+Isso ajusta o state do Tailscale e persiste em `/var/lib/tailscale/tailscaled.state`.
+
+### 🔧 Tornar permanente
+
+No Rocky (ou qualquer distro systemd), crie um drop-in:
+
+```bash
+sudo mkdir -p /etc/systemd/system/tailscaled.service.d
+sudo vim /etc/systemd/system/tailscaled.service.d/10-up.conf
+```
+
+Conteúdo:
+
+```
+[Service]
+ExecStartPost=/usr/bin/tailscale up --accept-routes
+```
+
+Recarregue:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart tailscaled
+```
 
 ---
 
-## 🔹 7. (Opcional) Tornar Exit Node
+## 🔹 7. Testar Conectividade
 
-Se quiser que **todo o tráfego da internet saia pelo Rocky**, adicione ao comando `tailscale up`:
+No **cliente**:
+
+* Verificar se a rota está ativa:
+
+```bash
+tailscale status
+```
+
+Deve aparecer:
+
+```
+192.168.31.0/24 via lenovo-server-linux
+```
+
+* Testar ping para um host da LAN:
+
+```bash
+ping 192.168.31.2
+```
+
+---
+
+## 🔹 8. (Opcional) Exit Node
+
+Se quiser que o servidor seja também saída para a internet:
 
 ```bash
 sudo tailscale up --advertise-exit-node --advertise-routes=192.168.31.0/24
 ```
 
-Depois, habilite no Admin Console a opção **Use as Exit Node**.
+No Admin Console habilite **Use as Exit Node**.
+Nos clientes, escolha esse exit node com:
+
+```bash
+sudo tailscale up --accept-routes --exit-node=<IP_TAILSCALE_DO_SERVIDOR>
+```
 
 ---
 
 # ✅ Resumo
 
-1. Instalação via repositório `rhel/9`.
-2. Habilitar IPv4/IPv6 forwarding.
-3. Ajustar GRO para performance.
-4. Anunciar rota `192.168.31.0/24`.
-5. Autorizar rota no painel Tailscale.
-6. Testar acesso à rede local.
-7. (Opcional) Usar como exit node.
+* **Servidor Rocky 10**: instalar Tailscale, ativar IP forwarding, otimizar GRO, anunciar rota.
+* **Painel Admin**: habilitar a rota.
+* **Clientes**: rodar `tailscale up --accept-routes` (ou configurar drop-in para persistir).
+* **Teste**: pingar hosts internos da LAN `192.168.31.0/24`.
+* **Opcional**: configurar Exit Node para sair para a internet via servidor.
 
 ---
 
-👉 Quer que eu já gere também um **playbook Ansible** para automatizar todos esses passos e replicar em outros servidores Rocky que você tiver?
+👉 Quer que eu te entregue também um **playbook Ansible** para instalar e configurar tanto o servidor (com `--advertise-routes`) quanto os clientes (com `--accept-routes`) em um clique?
