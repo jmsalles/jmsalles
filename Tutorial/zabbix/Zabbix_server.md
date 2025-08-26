@@ -276,10 +276,11 @@ sudo dnf -y install zabbix-agent2
 ```
 Configurar e iniciar:
 ```bash
-sudo sed -i \
-  -e 's/^Server=.*/Server=192.168.31.35/' \
-  -e 's/^ServerActive=.*/ServerActive=192.168.31.35/' \
-  -e 's/^Hostname=.*/Hostname=vm-lenovoi7-zabbix/' \
+HN="$(hostname -s)"
+sudo sed -i -E \
+  -e "s|^#?Server=.*|Server=192.168.31.35|" \
+  -e "s|^#?ServerActive=.*|ServerActive=192.168.31.35|" \
+  -e "s|^#?Hostname=.*|Hostname=${HN}|" \
   /etc/zabbix/zabbix_agent2.conf
 
 sudo firewall-cmd --add-port=10050/tcp --permanent
