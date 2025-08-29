@@ -1,46 +1,39 @@
-# 📈 Tutorial completo — Monitorar saída por link (RSL × TSCM) + velocidade (Rocky 10)
+# 📘 Procedimento Padrão – Monitoramento de Saída por Link (RSL × TSCM) + Velocidade
 
-### (Atualizado para usar **apenas `/usr/bin/speedtest`** via repositório EL9 e **servidor fixo 61444**)
-
-> Host coletor: **vm-lenovoi7-zabbix** (IP **192.168.31.35**) — já monitorado via **Zabbix Agent**
-> Objetivo: detectar **por qual link** (RSL ou TSCM) cada medição saiu, **medir download em Mbps** e enviar ao Zabbix para ter:
->
-> 1. **Velocidade RSL** 2) **Velocidade TSCM** 3) **Proporção nas últimas 100 medições** (ex.: 40×RSL / 60×TSCM)
+**Plataforma:** Rocky Linux 10 • **Coletor/Zabbix agent:** `vm-lenovoi7-zabbix (192.168.31.35)` • **Zabbix:** 7.4 • **Agendamento:** CRON
 
 ---
 
-## 🧭 Visão geral
+## 0) Sumário do que será entregue
 
-* **Coleta**: script lê IP público → classifica **RSL/TSCM** por faixa → mede **download (Mbps)** com **Ookla CLI** (`/usr/bin/speedtest`, servidor **61444 – Nova Iguaçu**) → envia 4 chaves *trapper* → 2 *calculated* formam o gráfico de proporção 100.
-* **Agendamento**: `systemd timer` a cada 3 minutos.
-* **Zabbix**: 4 itens *trapper*, 2 *calculated* e 3 widgets **Time series**.
+* Instalação da **Ookla CLI** (`/usr/bin/speedtest`) via **repositório EL9** (compatível no Rocky 10).
+* Script `/usr/local/bin/monitor_link.sh` (lock, retries, fallback de parsing, logs, zabbix\_sender tolerante).
+* Agendamento **CRON** com janelas:
+
+  * **07:00–17:59** → a **cada 5 min**
+  * **18:00–06:59** → a **cada 2 min**
+* Criação no **Zabbix 7.4** (host `vm-lenovoi7-zabbix`):
+
+  * 4 **itens trapper** (velocidades e contagens);
+  * 2 **itens calculated** (janela das últimas 100 medições);
+  * 3 **graphs (classic)** no host e 3 **widgets** no dashboard apontando para esses graphs.
+* Testes rápidos, troubleshooting e **logrotate** opcional.
 
 ---
 
-## 0) Pausar (se já tinha algo rodando)
+## 1) Pré-requisitos no coletor
 
 ```bash
-sudo systemctl stop monitor-link.timer monitor-link.service 2>/dev/null || true
-sudo systemctl disable monitor-link.timer 2>/dev/null || true
+sudo dnf -y install curl bind-utils jq zabbix-sender cronie
+sudo systemctl enable --now crond
 ```
+
+> Se existia systemd timer antigo, deixe só o CRON:
+> `sudo systemctl disable --now monitor-link.timer 2>/dev/null || true`
 
 ---
 
-## 1) Instalar a **Ookla CLI** via repositório **EL9** (compatível no Rocky 10)
-
-### 1.1 Limpeza (opcional, se havia instalações antigas)
-
-```bash
-sudo dnf -y remove speedtest 2>/dev/null || true
-sudo rm -f /usr/local/sbin/speedtest-cli /usr/local/bin/speedtest-cli /usr/local/bin/speedtest /usr/bin/speedtest /usr/bin/ookla-speedtest
-sudo rm -rf /opt/monitor-link/venv
-pip3 uninstall -y speedtest-cli 2>/dev/null || true
-sudo pip3 uninstall -y speedtest-cli 2>/dev/null || true
-sudo rm -f /etc/yum.repos.d/ookla-speedtest.repo /etc/yum.repos.d/ookla_speedtest-cli.repo /etc/yum.repos.d/ookla_speedtest-cli*.repo
-sudo dnf clean all && sudo rm -rf /var/cache/dnf
-```
-
-### 1.2 Adicionar repo EL9 e instalar
+## 2) Instalação – Ookla CLI (repositório EL9)
 
 ```bash
 sudo tee /etc/yum.repos.d/ookla-speedtest.repo >/dev/null <<'EOF'
@@ -65,47 +58,44 @@ EOF
 
 sudo dnf makecache
 sudo dnf -y install speedtest
-```
 
-### 1.3 Teste rápido
-
-```bash
+# Sanidade
 /usr/bin/speedtest --accept-license --accept-gdpr -V
 /usr/bin/speedtest --accept-license --accept-gdpr -L | head
 ```
 
-> O binário **oficial** estará em **/usr/bin/speedtest**.
-
 ---
 
-## 2) Script de coleta + envio ao Zabbix
+## 3) Script de coleta e envio ao Zabbix
 
-### 2.1 Criar o script
+> Mede download com `/usr/bin/speedtest` fixando servidor **61444 (Nova Iguaçu)**, detecta link por **faixa de IP**, grava log e envia trapper.
 
 ```bash
 sudo tee /usr/local/bin/monitor_link.sh >/dev/null <<'EOF'
 #!/usr/bin/env bash
 # /usr/local/bin/monitor_link.sh
-# Usa SOMENTE /usr/bin/speedtest (Ookla CLI) para medir download (Mbps)
-# e envia métricas para o Zabbix via zabbix_sender.
+# Mede download (Mbps) com /usr/bin/speedtest (Ookla) e envia via zabbix_sender.
+# Robustez: lock, retries, fallback de parsing, dump de JSON, zabbix_sender tolerante.
 
-set -euo pipefail
+set -u -o pipefail   # (sem -e para não matar por retorno !=0 em zabbix_sender)
 
 # ======= CONFIG =======
 ZBX_HOST="${ZBX_HOST:-vm-lenovoi7-zabbix}"
 LOGFILE="${LOGFILE:-/var/log/monitor_links.log}"
 
-# Caminho FIXO do speedtest e servidor fixo (RJ – Nova Iguaçu: 61444)
 SPEEDTEST_BIN="/usr/bin/speedtest"
-SPEEDTEST_SERVER_ID="61444"
+SPEEDTEST_SERVER_ID="${SPEEDTEST_SERVER_ID:-61444}"   # RJ – Nova Iguaçu
 
-# Prefixos por operadora
+# Prefixos por operadora (ajuste se necessário)
 TSCM_PREFIXES=("181.191.")
 RSL_PREFIXES=("168.121.")
 
-# Modo rápido (sem speedtest): chame com --no-speedtest
+# Execução sem speedtest (só contagem)? Use --no-speedtest
 FAST_ONLY=false
 [[ "${1:-}" == "--no-speedtest" ]] && FAST_ONLY=true
+
+LOCKFILE="/run/monitor_link.lock"
+TOOL_USED="[ookla:/usr/bin/speedtest]"
 
 # ======= FUNÇÕES =======
 detect_zbx_server() {
@@ -128,60 +118,71 @@ get_public_ip() {
   echo "$ip"
 }
 
-match_prefix() {
-  local ip="$1"; shift
-  local -a prefixes=("$@")
-  for p in "${prefixes[@]}"; do
-    [[ "$ip" == "$p"* ]] && return 0
-  done
-  return 1
-}
-
-identify_provider() {
+match_prefix(){ local ip="$1"; shift; for p in "$@"; do [[ "$ip" == "$p"* ]] && return 0; done; return 1; }
+identify_provider(){
   local ip="$1"
   if match_prefix "$ip" "${TSCM_PREFIXES[@]}"; then echo "TSCM"; return; fi
   if match_prefix "$ip" "${RSL_PREFIXES[@]}";  then echo "RSL";  return; fi
   echo "DESCONHECIDO"
 }
 
-TOOL_USED="[ookla:/usr/bin/speedtest]"
+run_speedtest_json() {
+  # $1 = "fixed" ou "auto"
+  if [[ "$1" == "fixed" && -n "$SPEEDTEST_SERVER_ID" ]]; then
+    "$SPEEDTEST_BIN" --accept-license --accept-gdpr -f json -s "$SPEEDTEST_SERVER_ID" 2>/dev/null || true
+  else
+    "$SPEEDTEST_BIN" --accept-license --accept-gdpr -f json 2>/dev/null || true
+  fi
+}
 
-get_download_mbps() {
-  # Usa SOMENTE /usr/bin/speedtest; tenta 2 formas de extrair
-  local args=(-f json --accept-license --accept-gdpr -s "$SPEEDTEST_SERVER_ID")
-  local JSON BW_BYTES BYTES ELAPSED
-
-  JSON=$("$SPEEDTEST_BIN" "${args[@]}" 2>/dev/null || true)
-
-  # 1) caminho normal: bandwidth (Bytes/s) -> Mbps
-  BW_BYTES=$(echo "$JSON" | jq -r '.download.bandwidth // empty')
+parse_mbps_from_json() {
+  # Entrada: JSON em stdin. Saída: Mbps (string) ou nada se não conseguir.
+  local BW_BYTES BYTES ELAPSED
+  BW_BYTES=$(jq -r '.download.bandwidth // empty')
   if [[ -n "$BW_BYTES" && "$BW_BYTES" != "null" && "$BW_BYTES" != "0" ]]; then
     awk -v b="$BW_BYTES" 'BEGIN {printf "%.2f", (b*8)/1000000}'
-    return
+    return 0
   fi
-
-  # 2) fallback: calcula por bytes + elapsed(ms)
-  BYTES=$(echo "$JSON"  | jq -r '.download.bytes // empty')
-  ELAPSED=$(echo "$JSON"| jq -r '.download.elapsed // empty')
-  if [[ -n "$BYTES" && -n "$ELAPSED" && "$ELAPSED" != "0" && "$BYTES" != "null" && "$ELAPSED" != "null" ]]; then
+  BYTES=$(jq -r '.download.bytes // empty')
+  ELAPSED=$(jq -r '.download.elapsed // empty')
+  if [[ -n "$BYTES" && -n "$ELAPSED" && "$BYTES" != "null" && "$ELAPSED" != "null" && "$ELAPSED" != "0" ]]; then
     awk -v bytes="$BYTES" -v ms="$ELAPSED" 'BEGIN {printf "%.2f", (bytes*8)/(ms*1000)}'
-    return
+    return 0
   fi
-
-  # 3) debug: salvar JSON quando falhar
-  echo "$JSON" > /var/log/monitor_links.lastjson 2>/dev/null || true
-  echo "0.00"
+  return 1
 }
+
+get_download_mbps() {
+  local JSON MBPS mode
+  # sequência: fixed -> auto -> fixed
+  for mode in fixed auto fixed; do
+    JSON="$(run_speedtest_json "$mode")"
+    MBPS="$(echo "$JSON" | parse_mbps_from_json || true)"
+    if [[ -n "${MBPS:-}" ]]; then echo "$MBPS"; return 0; fi
+    sleep 3
+  done
+  # Dump p/ debug
+  {
+    echo "==== $(date '+%F %T%z') FAIL JSON ===="
+    echo "$JSON"
+  } >> /var/log/monitor_links.lastjson 2>/dev/null || true
+  echo "0.00"
+  return 0
+}
+
+# ======= LOCK (não roda concorrente) =======
+exec 9>"$LOCKFILE" || true
+if ! flock -n 9; then
+  exit 0
+fi
 
 # ======= FLUXO =======
 ZBX_SERVER="${ZBX_SERVER:-$(detect_zbx_server)}"
-
 DATE="$(date '+%Y-%m-%d %H:%M:%S%z')"
 IP="$(get_public_ip)"
-
 if [[ -z "$IP" ]]; then
   echo "$DATE | Falha ao obter IP público | Zabbix: $ZBX_SERVER" | tee -a "$LOGFILE"
-  exit 1
+  exit 0
 fi
 
 PROV="$(identify_provider "$IP")"
@@ -191,18 +192,19 @@ if ! $FAST_ONLY; then
   DL_Mbps="$(get_download_mbps)"
 fi
 
-echo "$DATE | IP: $IP ($PROV) | Download: ${DL_Mbps} Mbps | Tool:${TOOL_USED} | Zabbix: $ZBX_SERVER" | tee -a "$LOGFILE"
+echo "$DATE | IP: $IP ($PROV) | Download: ${DL_Mbps} Mbps | Tool:[ookla:/usr/bin/speedtest] | Zabbix: $ZBX_SERVER" | tee -a "$LOGFILE"
 
+# Envio tolerante (não derruba se falhar)
 case "$PROV" in
   "RSL")
-    $FAST_ONLY || zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.speed  -o "$DL_Mbps" >/dev/null
-    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.count -o 1 >/dev/null
-    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.count -o 0 >/dev/null
+    $FAST_ONLY || zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.speed  -o "$DL_Mbps" >/dev/null 2>&1 || true
+    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.count -o 1 >/dev/null 2>&1 || true
+    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.count -o 0 >/dev/null 2>&1 || true
     ;;
   "TSCM")
-    $FAST_ONLY || zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.speed -o "$DL_Mbps" >/dev/null
-    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.count -o 1 >/dev/null
-    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.count  -o 0 >/dev/null
+    $FAST_ONLY || zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.speed -o "$DL_Mbps" >/dev/null 2>&1 || true
+    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.tscm.count -o 1 >/dev/null 2>&1 || true
+    zabbix_sender -z "$ZBX_SERVER" -s "$ZBX_HOST" -k link.rsl.count  -o 0 >/dev/null 2>&1 || true
     ;;
   *)
     ;;
@@ -215,170 +217,186 @@ sudo chmod +x /usr/local/bin/monitor_link.sh
 sudo touch /var/log/monitor_links.log && sudo chmod 664 /var/log/monitor_links.log
 ```
 
----
-
-## 3) Service/Timer do systemd (PATH “limpo”, sem venv)
+Teste manual:
 
 ```bash
-# service
-sudo tee /etc/systemd/system/monitor-link.service >/dev/null <<'EOF'
-[Unit]
-Description=Monitorar saída de link (RSL x TSCM) + velocidade -> Zabbix
-
-[Service]
-Type=oneshot
-Environment="PATH=/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin"
-ExecStart=/usr/local/bin/monitor_link.sh
-EOF
-
-# timer (3 min)
-sudo tee /etc/systemd/system/monitor-link.timer >/dev/null <<'EOF'
-[Unit]
-Description=Agendar monitor-link.service a cada 3 minutos
-
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=3min
-Unit=monitor-link.service
-
-[Install]
-WantedBy=timers.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now monitor-link.timer
-
-# teste manual imediato
-sudo systemctl start monitor-link.service
+sudo /usr/local/bin/monitor_link.sh
 tail -n 5 /var/log/monitor_links.log
 ```
 
 ---
 
-## 4) Configuração no **Zabbix Server**
+## 4) Agendamento – CRON (janelas 5/5 e 2/2)
 
-### 4.1 Itens **Trapper** (no host **vm-lenovoi7-zabbix**)
+```bash
+sudo tee /etc/cron.d/monitor-link >/dev/null <<'EOF'
+# Monitorar saída por link (RSL x TSCM) com /usr/local/bin/monitor_link.sh
+# Janelas:
+#  - 07:00–17:59  => a cada 5 min
+#  - 18:00–06:59  => a cada 2 min
+#
+# Observações:
+#  - PATH enxuto; o script já usa caminhos absolutos p/ speedtest (/usr/bin/speedtest)
+#  - não redirecionamos para o log aqui; o script já grava em /var/log/monitor_links.log
 
-Caminho: **Data collection → Hosts → vm-lenovoi7-zabbix → Items → Create item** (um por vez):
+SHELL=/bin/bash
+PATH=/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin
+MAILTO=""
 
-1. **RSL - Download Mbps**
+# 07:00–17:59 (*/5)
+*/5 7-17 * * * root /usr/local/bin/monitor_link.sh >/dev/null 2>&1
 
-* Type: **Zabbix trapper** | Key: `link.rsl.speed` | Type of information: **Numeric (float)** | Units: **Mbps** | **Allowed hosts**: `192.168.31.35`
+# 18:00–06:59 (*/2)
+*/2 18-23,0-6 * * * root /usr/local/bin/monitor_link.sh >/dev/null 2>&1
+EOF
 
-2. **TSCM - Download Mbps**
+# Sanidade
+sudo systemctl reload crond 2>/dev/null || true
+sudo journalctl -u crond --since "10 min ago" --no-pager
+```
 
-* Type: **Zabbix trapper** | Key: `link.tscm.speed` | Type of information: **Numeric (float)** | Units: **Mbps** | **Allowed hosts**: `192.168.31.35`
+---
 
-3. **RSL - Contagem**
+## 5) Zabbix 7.4 – Itens (Trapper + Calculated)
 
-* Type: **Zabbix trapper** | Key: `link.rsl.count` | Type of information: **Numeric (unsigned)** | Allowed hosts: `192.168.31.35`
+**Host:** `vm-lenovoi7-zabbix` → **Data collection → Hosts → vm-lenovoi7-zabbix → Items → Create item**
 
-4. **TSCM - Contagem**
+### 5.1 Trapper – velocidades
 
-* Type: **Zabbix trapper** | Key: `link.tscm.count` | Type of information: **Numeric (unsigned)** | Allowed hosts: `192.168.31.35`
+**RSL - Download Mbps**
 
-### 4.2 Itens **Calculated** (proporção nas **últimas 100** medições)
+* Type: **Zabbix trapper** • Key: `link.rsl.speed` • Info: **Numeric (float)** • Units: `Mbps`
+* History: `90d` • Trends: `365d` • **Allowed hosts:** `192.168.31.35`
+* (Tags opcio.: `link=RSL`, `tipo=velocidade`) → **Add**
 
-Crie mais dois itens:
+**TSCM - Download Mbps** (igual ao acima com **Key:** `link.tscm.speed`, tag `link=TSCM`)
 
-5. **RSL - Últimas 100 medições**
+### 5.2 Trapper – contagem
 
-* Type: **Calculated** | Key: `link.rsl.last100` | Type of information: **Numeric (unsigned)** | Update interval: **60s** |
-* **Formula**:
+**RSL - Contagem**
+
+* Type: **Zabbix trapper** • Key: `link.rsl.count` • Info: **Numeric (unsigned)** • History: `30d`
+* **Allowed hosts:** `192.168.31.35` → **Add**
+
+**TSCM - Contagem** (Key: `link.tscm.count`)
+
+### 5.3 Calculated – janela das **últimas 100**
+
+**RSL - Últimas 100 medições**
+
+* Type: **Calculated** • Key: `link.rsl.last100` • Info: **Numeric (unsigned)** • Update interval: `60s`
+* **Formula:**
 
 ```
 count(/vm-lenovoi7-zabbix/link.rsl.count,#100,"gt",0)
 ```
 
-6. **TSCM - Últimas 100 medições**
+→ **Add**
 
-* Type: **Calculated** | Key: `link.tscm.last100` | Type of information: **Numeric (unsigned)** | Update interval: **60s** |
-* **Formula**:
+**TSCM - Últimas 100 medições** (Key: `link.tscm.last100`, fórmula equivalente)
 
-```
-count(/vm-lenovoi7-zabbix/link.tscm.count,#100,"gt",0)
-```
+> **Teste rápido trapper:**
+> `zabbix_sender -z 192.168.31.35 -s "vm-lenovoi7-zabbix" -k link.rsl.count -o 1`
 
 ---
 
-## 5) Dashboard — 3 widgets **Time series**
+## 6) Zabbix 7.4 – Graphs (classic) no host (FORMA B)
 
-### 5.1 Abrir/crear dashboard
+**Caminho:** `Data collection → Hosts → vm-lenovoi7-zabbix → Graphs → Create graph`
 
-**Monitoring → Dashboards → Create dashboard**
-Name: `Links RSL x TSCM` | Auto refresh: `1m` | Period: `6h` (exemplo) | **Save**
+### 6.1 Graph: **Velocidade — RSL (Mbps)**
 
-### 5.2 Widget 1 — **Velocidade — RSL (Mbps)**
+* **Name:** `Velocidade — RSL (Mbps)` • **Graph type:** `Normal`
+* **Items → Add item:** `RSL - Download Mbps` (key `link.rsl.speed`)
+  Draw: `Line` • Y axis: `Left` • Stacked: **Off** • Width: `1`
+* **Y axis:** Left **min 0** • **max** *(Auto ou 1000)*
+* **Add**
 
-**Add widget → Time series**
+### 6.2 Graph: **Velocidade — TSCM (Mbps)**
 
-* Title: `Velocidade — RSL (Mbps)`
-* Data set: Host `vm-lenovoi7-zabbix` | Item `link.rsl.speed` | Legend `RSL` | Stacking `None`
-* Axes: Y **Min 0**, **Max Auto**
-* Display: **Show legend** → **Add**
+* Itens: `TSCM - Download Mbps` (key `link.tscm.speed`)
+  Draw `Line` • Y `Left` • Stacked Off • Width `1`
+* **Y:** min 0 • max *(Auto/1000)*
+* **Add**
 
-### 5.3 Widget 2 — **Velocidade — TSCM (Mbps)**
+### 6.3 Graph: **Proporção — últimas 100 (RSL x TSCM)** (empilhado)
 
-Clone o widget anterior e troque o item para `link.tscm.speed`, Title `Velocidade — TSCM (Mbps)`, Legend `TSCM`.
+* **Items (2):**
 
-### 5.4 Widget 3 — **Proporção — últimas 100 (RSL x TSCM)** (empilhado)
-
-**Add widget → Time series**
-
-* Title: `Proporção — últimas 100 (RSL x TSCM)`
-* Data set 1: `link.rsl.last100` (Legend `RSL`, **Stacked**)
-* Data set 2: `link.tscm.last100` (Legend `TSCM`, **Stacked**)
-* Axes: Y **Min 0**, **Max 100**
-* Display: **Show legend** → **Add** → **Save** o dashboard
-
-> Esse gráfico mostra, a cada instante, um par de valores que **soma 100** (ex.: 40/60).
+  1. `RSL - Últimas 100 medições` • Draw `Line` (ou *Filled region*) • Y `Left` • **Stacked ON**
+  2. `TSCM - Últimas 100 medições` • Draw `Line` • Y `Left` • **Stacked ON**
+* **Y:** Left **min 0**, **max 100** (fixo)
+* **Add**
 
 ---
 
-## 6) Testes rápidos
+## 7) Dashboard – Widgets apontando para os graphs
 
-```bash
-# Rodar manualmente no mesmo contexto do service
-sudo /usr/local/bin/monitor_link.sh
+**Caminho:** `Monitoring → Dashboards → (seu dashboard) → Edit (lápis) → Add → Graph (classic)`
+Adicione **3 widgets**, cada um apontando para:
 
-# Ver o log (deve mostrar Tool:[ookla:/usr/bin/speedtest] e Mbps > 0)
-tail -n 10 /var/log/monitor_links.log
+1. **Graph:** `Velocidade — RSL (Mbps)`
+2. **Graph:** `Velocidade — TSCM (Mbps)`
+3. **Graph:** `Proporção — últimas 100 (RSL x TSCM)`
 
-# Teste de envio simples (trapper):
-zabbix_sender -z "$(grep -E '^(ServerActive|Server)=' /etc/zabbix/zabbix_agent*.conf 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d ' ' | cut -d, -f1)" \
-  -s "vm-lenovoi7-zabbix" -k link.rsl.count -o 1
-```
-
-Em **Monitoring → Latest data**, confirme valores chegando. Veja os três widgets no dashboard.
+> **Auto refresh** do dashboard: **1m** | **Período:** 6h ou 24h.
 
 ---
 
-## 7) Troubleshooting
+## 8) Validações e Troubleshooting
 
-* **Download 0.00 Mbps**:
+* **Latest data** (host `vm-lenovoi7-zabbix`):
 
-  1. Rode manual: `/usr/bin/speedtest --accept-license --accept-gdpr -s 61444` (se OK, binário está bom).
-  2. Veja `/var/log/monitor_links.lastjson` — se existir, me envie o início (retorno do JSON).
-  3. Confirme PATH do service (tem **/usr/bin** primeiro) e se o script tem `SPEEDTEST_SERVER_ID="61444"`.
-
-* **Itens trapper sem dados**: cheque `ZBX_HOST` no script e **Allowed hosts = 192.168.31.35** nos itens.
-
-* **Gráfico “Proporção 100” parado**: dispare um *burst* sem speedtest (só contagem) para encher a janela:
+  * `link.rsl.speed` / `link.tscm.speed` com **Mbps** recentes?
+  * `link.rsl.last100` + `link.tscm.last100` \~ **100**?
+* **Logs e CRON:**
 
   ```bash
-  for i in {1..100}; do /usr/local/bin/monitor_link.sh --no-speedtest; sleep 2; done
+  sudo journalctl -u crond --since "15 min ago" --no-pager
+  tail -n 20 /var/log/monitor_links.log
   ```
-
-* **Quero menos impacto de banda**: mantenha o timer de 3 min (só contagem) e crie um **segundo timer 1×/hora** que roda o script (sem `--no-speedtest`) para atualizar velocidades.
+* **JSON problemático:**
+  `sudo sed -n '1,120p' /var/log/monitor_links.lastjson`
+* **Allowed hosts** nos trapper: `192.168.31.35`
+* **Lock:** o script impede concorrência (não use `flock` no cron).
 
 ---
 
-## ☑️ Checklist final
+## 9) (Opcional) Logrotate
 
-* [ ] `/usr/bin/speedtest` instalado pelo repo EL9.
-* [ ] Script **/usr/local/bin/monitor\_link.sh** com `SPEEDTEST_SERVER_ID="61444"`.
-* [ ] Service/Timer ativos com `PATH=/usr/bin:...` (sem venv).
-* [ ] 4 itens *trapper* + 2 *calculated* criados no Zabbix.
-* [ ] 3 widgets **Time series** exibindo dados.
+```bash
+sudo tee /etc/logrotate.d/monitor_links >/dev/null <<'EOF'
+/var/log/monitor_links.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    create 0664 root root
+}
+EOF
+```
 
-Se quiser, depois adapto o script para **usar um ID diferente por operadora** (RSL vs TSCM), caso você identifique servidores específicos que performam melhor para cada link.
+---
+
+## ✅ Checklist final
+
+* [ ] `/usr/bin/speedtest` instalado (repo EL9) e OK.
+* [ ] Script em `/usr/local/bin/monitor_link.sh` (exec) + log em `/var/log/monitor_links.log`.
+* [ ] CRON em `/etc/cron.d/monitor-link` com janelas 5/5 e 2/2.
+* [ ] Zabbix: 4 **trapper** + 2 **calculated** criados.
+* [ ] 3 **graphs (classic)** no host e 3 **widgets** no dashboard.
+* [ ] Gráficos mostrando Mbps e proporção 100.
+
+---
+
+**Assinatura / Template**
+
+**Autor:** Jeferson “jmsalles”
+**Host coletor:** `vm-lenovoi7-zabbix` • **IP:** `192.168.31.35`
+**Data:** 26/08/2025 • **TZ:** America/Sao\_Paulo
+**Projeto:** Monitoramento de links (RSL × TSCM) + Velocidade — Zabbix 7.4
+
+---
+
+Se quiser, preparo um **apêndice** com “servidor speedtest diferente por operadora” (um ID para RSL e outro para TSCM, autodetectado pelo IP).
