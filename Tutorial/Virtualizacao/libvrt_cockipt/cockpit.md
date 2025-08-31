@@ -19,6 +19,15 @@ dnf -y install \
   cockpit cockpit-machines cockpit-storaged cockpit-networkmanager \
   cockpit-packagekit cockpit-pcp cockpit-tuned cockpit-sosreport
 
+  Instalar o PCP (back-end de métricas) e autoconfig:
+
+sudo dnf -y install pcp pcp-zeroconf
+
+
+Ativar os serviços do PCP:
+
+sudo systemctl enable --now pmcd pmlogger pmproxy
+
 systemctl enable --now cockpit.socket         # inicia o servidor web
 # (opcional) abrir a porta no firewall
 firewall-cmd --add-service=cockpit --permanent
