@@ -89,10 +89,14 @@ dnf -y install virt-install virt-viewer \
 2. **Ativar libvirtd**:
 
 ```bash
-systemctl enable --now libvirtd
+systemctl enable --now virtqemud.service
+systemctl enable --now virtqemud.socket
+systemctl enable --now virtstoraged.socket
+systemctl enable --now virtnetworkd.socket
+
 usermod -aG libvirt $USER   # depois faça logout/login
 virt-host-validate
-```
+```vir      
 
 3. *(Opcional)* **Nested KVM** no host (Intel):
 
