@@ -1,0 +1,62 @@
+O comportamento padrão do `ssh` **não é testar todas as chaves** do diretório `~/.ssh`. Ele só tenta as que estão listadas no `ssh-agent` ou especificadas no `~/.ssh/config`. Mas dá para configurar para que ele tente **automaticamente todas as suas chaves privadas dentro de `~/.ssh`**.
+
+---
+
+## 1. Editar a configuração global do SSH
+
+Edite o arquivo de configuração do cliente SSH:
+
+```bash
+vim ~/.ssh/config
+```
+
+E adicione:
+
+```
+Host *
+    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/jmsalles_ecdsa
+    IdentityFile ~/.ssh/chave-gcp
+    IdentityFile ~/.ssh/Chave_4Linux.pem
+    IdentitiesOnly no
+```
+
+Explicação:
+
+* `Host *` → aplica para todos os hosts.
+* `IdentityFile` → lista todas as suas chaves privadas.
+* `IdentitiesOnly no` → permite que o ssh tente todas as chaves listadas.
+
+---
+
+## 2. Usar o ssh-agent (mais limpo)
+
+Outra forma é carregar todas as chaves no `ssh-agent`, assim o cliente SSH vai testar todas automaticamente:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+ssh-add ~/.ssh/jmsalles_ecdsa
+ssh-add ~/.ssh/chave-gcp
+ssh-add ~/.ssh/Chave_4Linux.pem
+```
+
+Depois confirme as chaves carregadas:
+
+```bash
+ssh-add -l
+```
+
+Agora qualquer `ssh user@host` vai testar todas as chaves armazenadas no agente.
+
+---
+
+## 3. Se tiver muitas chaves
+
+O OpenSSH tem um limite de tentativas de autenticação (geralmente 5). Se você tiver muitas chaves, pode ser preciso aumentar esse limite no servidor (`MaxAuthTries` no `/etc/ssh/sshd_config`). Mas para uso pessoal no homelab, listar no `config` ou usar `ssh-agent` resolve.
+
+---
+
+👉 Recomendo usar a **estratégia 2 (ssh-agent)** se você alterna entre muitas chaves em ambientes diferentes (GCP, AWS, homelab). Se a ideia é só no seu homelab, basta usar a **estratégia 1** com `IdentityFile` no `config`.
+
+Quer que eu monte para você um `~/.ssh/config` **único**, com todos os seus hosts do homelab (192.168.31.33, 35, 36, etc.) já apontando para a chave certa, mas também com um `Host *` que garanta fallback para todas as chaves?

@@ -81,9 +81,10 @@ vgchange -ay
 1. **Instalar pacotes**:
 
 ```bash
-dnf -y groupinstall "Virtualization"
-dnf -y install virt-install virt-viewer \
-  libvirt-daemon-driver-storage libvirt-daemon-driver-storage-logical
+sudo dnf -y groupinstall "Virtualization"
+sudo dnf -y install virt-install virt-viewer libvirt-daemon-driver-storage libvirt-daemon-driver-storage-logical
+sudo dnf install libvirt-daemon libvirt-daemon-driver-qemu libvirt-daemon-driver-network libvirt-daemon-driver-nwfilter libvirt-daemon-driver-storage-core
+
 ```
 
 2. **Ativar libvirtd**:
@@ -94,18 +95,18 @@ systemctl enable --now virtqemud.socket
 systemctl enable --now virtstoraged.socket
 systemctl enable --now virtnetworkd.socket
 
-usermod -aG libvirt $USER   # depois faça logout/login
+sudo usermod -aG libvirt $USER   # depois faça logout/login
 virt-host-validate
-```vir      
+```      
 
 3. *(Opcional)* **Nested KVM** no host (Intel):
 
 ```bash
-printf "options kvm_intel nested=1\n" > /etc/modprobe.d/kvm_intel.conf
-systemctl stop libvirtd
-modprobe -r kvm_intel || true; modprobe -r kvm || true
-modprobe kvm_intel
-systemctl start libvirtd
+echo 'options kvm_intel nested=1' | sudo tee /etc/modprobe.d/kvm_intel.conf >/dev/null
+sudo systemctl stop libvirtd
+sudo modprobe -r kvm_intel || true; modprobe -r kvm || true
+sudo modprobe kvm_intel
+sudo systemctl start libvirtd
 cat /sys/module/kvm_intel/parameters/nested   # Y
 ```
 
