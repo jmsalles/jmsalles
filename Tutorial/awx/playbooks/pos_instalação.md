@@ -23,7 +23,7 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
 # - Pula hosts que não usam DNF
 
 - name: Pós-instalação (RHEL/Rocky/Alma) com DNF
-  hosts: linux_dnf
+  hosts: pos_instalacao
   gather_facts: true
   become: true
 
