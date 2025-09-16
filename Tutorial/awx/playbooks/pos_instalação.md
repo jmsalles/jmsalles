@@ -13,12 +13,14 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
 
 ```yaml
 ---
+---
 # playbooks/os_pos_instalacao.yml
-# Pós-instalação para RHEL/Rocky/AlmaLinux (DNF)
-# - Habilita repositórios necessários (EPEL, CRB/PowerTools/CRB-RHEL)
-# - Instala utilitários essenciais, dev toolchain e ferramentas de redes/diagnóstico
-# - Cada pacote é instalado individualmente; falhas não interrompem o play
-# - Habilita chronyd e ajusta timezone para America/Sao_Paulo
+# Pós-instalação para RHEL/Rocky/Alma (DNF)
+# - Repos: EPEL + CRB/PowerTools/CRB-RHEL
+# - Instala pacotes essenciais (um a um, sem travar o play se falhar)
+# - Instala o grupo "Development Tools"
+# - Habilita chronyd e seta timezone America/Sao_Paulo
+# - Pula hosts que não usam DNF
 
 - name: Pós-instalação (RHEL/Rocky/Alma) com DNF
   hosts: linux_dnf
@@ -26,16 +28,16 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
   become: true
 
   vars:
-    # Estado desejado dos pacotes (present | latest | absent)
+    # present | latest | absent
     pos_pkg_state: present
 
-    # Lista de pacotes essenciais (cada item é instalado individualmente)
+    # Lista de pacotes (um a um; se um falhar, seguimos para o próximo)
     pos_pkg_list:
       # Repositórios e utilitários base
       - epel-release
       - dnf-plugins-core
 
-      # Ferramentas de sincronismo, medição e navegação
+      # Ferramentas essenciais
       - chrony
       - atop
       - ncdu
@@ -51,7 +53,7 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
       - tree
       - which
 
-      # Arquivos compactados e utilitários de compressão
+      # Compressão/arquivos
       - tar
       - zip
       - unzip
@@ -61,14 +63,14 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
       - p7zip
       - p7zip-plugins
 
-      # Transferência de arquivos e sincronização
+      # Transferência/CA/SSH
       - wget
       - curl
       - rsync
       - openssh-clients
       - ca-certificates
 
-      # Toolchain de desenvolvimento (pacotes individuais)
+      # Toolchain/dev libs
       - gcc
       - gcc-c++
       - make
@@ -90,7 +92,7 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
       - python3
       - python3-pip
 
-      # Rede, diagnóstico e troubleshooting
+      # Rede e troubleshooting
       - iproute
       - iputils
       - net-tools
@@ -122,12 +124,20 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
       ansible.builtin.dnf:
         update_cache: true
 
+    # Preparar plugins para usar config-manager
+    - name: Garantir dnf-plugins-core (para config-manager)
+      ansible.builtin.dnf:
+        name: dnf-plugins-core
+        state: present
+      register: dnf_plugins_core
+      failed_when: false
+
     # --- Habilitação de repositórios ---
 
     - name: Habilitar CRB (Rocky/Alma 9+)
       ansible.builtin.command: dnf -y config-manager --set-enabled crb
       register: crb_set
-      changed_when: "'enabled' in (crb_set.stdout + crb_set.stderr | default(''))"
+      changed_when: "'enabled' in ((crb_set.stdout | default('')) + (crb_set.stderr | default('')))"
       failed_when: false
       when:
         - ansible_facts.distribution in ['Rocky', 'AlmaLinux']
@@ -136,7 +146,7 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
     - name: Habilitar PowerTools (Rocky/Alma 8)
       ansible.builtin.command: dnf -y config-manager --set-enabled powertools
       register: powertools_set
-      changed_when: "'enabled' in (powertools_set.stdout + powertools_set.stderr | default(''))"
+      changed_when: "'enabled' in ((powertools_set.stdout | default('')) + (powertools_set.stderr | default('')))"
       failed_when: false
       when:
         - ansible_facts.distribution in ['Rocky', 'AlmaLinux']
@@ -145,53 +155,55 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
     - name: Habilitar CodeReady Builder (RHEL) via subscription-manager
       ansible.builtin.command: "subscription-manager repos --enable=codeready-builder-for-rhel-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}-rpms"
       register: crb_rhel_set
-      changed_when: "'enabled' in (crb_rhel_set.stdout + crb_rhel_set.stderr | default(''))"
+      changed_when: "'enabled' in ((crb_rhel_set.stdout | default('')) + (crb_rhel_set.stderr | default('')))"
       failed_when: false
       when: ansible_facts.distribution == 'RedHat'
 
   tasks:
-    # --- Instalação de pacotes, um a um, sem travar o play em caso de erro ---
+    - name: Garantir EPEL (epel-release)
+      ansible.builtin.dnf:
+        name: epel-release
+        state: present
+      register: epel_res
+      failed_when: false
 
-    - name: Instalar pacotes essenciais individualmente (continua em caso de erro)
-    # Usamos block/rescue por item para capturar falhas sem interromper a execução.
-      block:
-        - name: Instalar pacote "{{ item }}"
-          ansible.builtin.dnf:
-            name: "{{ item }}"
-            state: "{{ pos_pkg_state }}"
-          register: _pkg_result
-        - name: Registrar sucesso "{{ item }}"
-          ansible.builtin.set_fact:
-            pos_success: "{{ (pos_success | default([])) + [ item ] }}"
-      rescue:
-        - name: Registrar falha "{{ item }}"
-          ansible.builtin.set_fact:
-            pos_failed: "{{ (pos_failed | default([])) + [ item ] }}"
+    - name: Atualizar cache do DNF (após repositórios)
+      ansible.builtin.dnf:
+        update_cache: true
+
+    # --- Instalação de pacotes (um a um) ---
+    - name: Instalar pacote individualmente
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: "{{ pos_pkg_state }}"
       loop: "{{ pos_pkg_list }}"
       loop_control:
         label: "{{ item }}"
+      register: pos_pkg_install
+      ignore_errors: yes
 
-    # --- Instalação do grupo "Development Tools" ---
-    - name: Instalar grupo de pacotes "Development Tools"
+    # Separar sucesso e falha a partir dos resultados do loop
+    - name: Computar listas de sucesso/falha
+      ansible.builtin.set_fact:
+        pos_failed: >-
+          {{ (pos_pkg_install.results | selectattr('failed','defined') | selectattr('failed') | map(attribute='item') | list) | default([]) }}
+        pos_success: >-
+          {{ (pos_pkg_install.results | rejectattr('failed','defined') | map(attribute='item') | list) | default([]) }}
+
+    # --- Grupo "Development Tools" ---
+    - name: Instalar grupo "Development Tools"
       ansible.builtin.dnf:
         name: "@Development Tools"
         state: "{{ pos_pkg_state }}"
       register: devtools_result
       failed_when: false
 
-    # --- Configurar timezone ---
-    - name: Ajustar timezone para America/Sao_Paulo (via módulo)
-      community.general.timezone:
-        name: America/Sao_Paulo
-      failed_when: false
-
-    # Fallback com timedatectl (caso o módulo não esteja disponível no EE)
-    - name: Ajustar timezone (fallback timedatectl)
+    # --- Timezone e Chrony ---
+    - name: Ajustar timezone (timedatectl)
       ansible.builtin.command: timedatectl set-timezone America/Sao_Paulo
       changed_when: false
       failed_when: false
 
-    # --- Habilitar e iniciar chronyd ---
     - name: Habilitar e iniciar chronyd
       ansible.builtin.service:
         name: chronyd
@@ -200,19 +212,23 @@ Salve como `playbooks/os_pos_instalacao.yml` no seu repositório `awx-project`.
       failed_when: false
 
   post_tasks:
-    # --- Sumário amigável ao final ---
-    - name: Mostrar pacotes que falharam (se houver)
+    - name: Sumário — pacotes que falharam
       ansible.builtin.debug:
-        msg: "Falharam: {{ pos_failed | default([]) | join(', ') if (pos_failed | default([])) else 'nenhum' }}"
+        msg: >-
+          {{ 'Falharam: ' + (pos_failed | join(', ')) if (pos_failed | length > 0)
+             else 'Falharam: nenhum' }}
 
-    - name: Mostrar pacotes instalados/ok (amostra)
+    - name: Sumário — pacotes instalados/ok (amostra de até 15)
       ansible.builtin.debug:
-        msg: "Sucesso (primeiros 15): {{ (pos_success | default([]))[:15] | join(', ') if (pos_success | default([])) else 'nenhum' }}"
+        msg: >-
+          {{ 'Sucesso (até 15): ' + ((pos_success | default([]))[:15] | join(', '))
+             if (pos_success | default([]) | length > 0) else 'Sucesso: nenhum' }}
 
-    - name: Mostrar status do grupo Development Tools
+    - name: Status do grupo Development Tools (debug)
       ansible.builtin.debug:
         var: devtools_result
       when: devtools_result is defined
+
 ```
 
 ### Como colocar no seu repositório
