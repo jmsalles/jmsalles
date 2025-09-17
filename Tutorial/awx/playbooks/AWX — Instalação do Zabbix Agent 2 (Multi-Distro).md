@@ -1,36 +1,21 @@
-perfeito, Jeferson — ajustei para **somente instalar e configurar o zabbix-agent2** (sem criar host na API). Também **adição de perguntas (Survey)** no **Job Template** — na ordem correta: **crie o template primeiro**, depois **adicione o Survey**. Mantive **firewall condicional** (só adiciona regra se o firewall já estiver ativo) e deixei **validação do agente** local (e remota opcional, desativada por padrão).
+perfeito, Jeferson — bora consolidar tudo com as **duas correções pedidas no Survey**:
+
+* Pergunta para **versão do Zabbix Agent** (multiple choice) com **default = 7.4**.
+* Pergunta para **Zabbix Server (IP/FQDN)** com **default = 192.168.31.35**.
+
+Mantive: instalação multi-distro, firewall **só se já estiver ativo**, validação local com `zabbix_get`, e ordem correta no AWX (**cria o template, depois o Survey**). Também deixei os **defaults literais** no playbook para evitar loop de variáveis (trauma superado 😄).
 
 ---
 
-# 📘 AWX — Instalação do Zabbix Agent 2 (Multi-Distro)
+# 📘 AWX — Instalação do Zabbix Agent 2 (multi-distro)
 
-*Firewall só se ativo • Survey completo • Sem cadastro na API*
-
-## 🔎 Resumo
-
-Instala e configura o **zabbix-agent2** em Rocky/Alma/RHEL e Debian/Ubuntu, define `Server`, `ServerActive` e `Hostname` (curto ou FQDN), **só** abre a porta **10050/tcp** se o **firewalld** (RHEL-like) ou **UFW** (Debian/Ubuntu) já estiver **ativo**, valida com `zabbix_get`. **Não** registra o host no Zabbix.
-
----
-
-## 📑 Sumário
-
-* Pré-requisitos
-* Estrutura do projeto
-* Playbook (`zabbix_agent2_awx.yml`)
-* Criação do Job Template (depois faremos o Survey)
-* **Survey — Perguntas e validações (ordem correta)**
-* Execução e validações
-* Troubleshooting rápido
-* Checklist final
-* Assinatura
-
----
+*Survey com versão (7.4 default) + Zabbix Server 192.168.31.35 • Firewall apenas se ativo • Validações*
 
 ## ✅ Pré-requisitos
 
-* Inventário acessível por SSH no AWX.
-* Permissão de `become` nos alvos.
-* Collections:
+* AWX com **ansible-core 2.15.13** (anotado).
+* Inventário com os hosts de destino e credencial SSH válida (`become` disponível).
+* Collections no projeto:
 
 ```bash
 vim requirements.yml
@@ -39,41 +24,23 @@ vim requirements.yml
 ```yaml
 ---
 collections:
-  - ansible.posix
-  - community.general
+  - name: ansible.posix
+    version: "1.*"
+  - name: community.general
+    version: "8.*"   # compatível e silenciosa com core 2.15.x
 ```
 
-> No AWX: faça **Project → Sync** para instalar as collections (Project Update com `ansible-galaxy install -r requirements.yml`).
+Sincronize o projeto no AWX (Project → Sync).
 
 ---
 
-## 🗂️ Estrutura do projeto
+## 🗂️ Estrutura do repositório
 
 ```bash
 vim zabbix_agent2_awx.yml
 ```
 
-> Cole o playbook completo abaixo.
-
-Opcionalmente, defaults globais:
-
-```bash
-mkdir -p group_vars && vim group_vars/all.yml
-```
-
-```yaml
-zbx_version: "7.4"
-zbx_agent_port: 10050
-zbx_use_fqdn: false
-zbx_remote_validate: false        # validação remota via container (opcional)
-zbx_server_container_host: "192.168.31.35"
-zbx_container_runtime: "docker"   # "docker" ou "podman"
-zbx_server_container_name: "zabbix-server"
-```
-
----
-
-## 🛠️ Playbook — `zabbix_agent2_awx.yml` (sem cadastro na API)
+Cole o playbook abaixo (com os **defaults** pedidos e as validações robustas):
 
 ```yaml
 ---
@@ -83,29 +50,59 @@ zbx_server_container_name: "zabbix-server"
   gather_facts: true
 
   vars:
-    zbx_version: "{{ zbx_version | default('7.4') }}"
-    zbx_server: ""                    # definido via Survey
-    zbx_use_fqdn: "{{ zbx_use_fqdn | default(false) }}"
-    zbx_agent_port: "{{ zbx_agent_port | default(10050) }}"
+    # Defaults seguros (Survey pode sobrescrever)
+    zbx_version: "7.4"                 # default pedido
+    zbx_server: "192.168.31.35"        # default pedido
+    zbx_use_fqdn: false
+    zbx_agent_port: 10050
     zbx_conf: /etc/zabbix/zabbix_agent2.conf
 
-    # Validação remota opcional (container no host 192.168.31.35)
-    zbx_remote_validate: "{{ zbx_remote_validate | default(false) }}"
-    zbx_server_container_host: "{{ zbx_server_container_host | default('192.168.31.35') }}"
-    zbx_container_runtime: "{{ zbx_container_runtime | default('docker') }}"
-    zbx_server_container_name: "{{ zbx_server_container_name | default('zabbix-server') }}"
+    # Controle de firewall: só adiciona regra se o firewall já estiver ativo
+    zbx_firewall_manage_if_active: true
+
+    # Validação remota opcional via container do Zabbix Server
+    zbx_remote_validate: false
+    zbx_server_container_host: "192.168.31.35"
+    zbx_container_runtime: "docker"     # ou "podman"
+    zbx_server_container_name: "zabbix-server"
+
+    # Versões permitidas (para não quebrar URL de repo)
+    zbx_version_allowed:
+      - "7.4"
+      - "7.2"
+      - "6.4"
 
   pre_tasks:
-    - name: Validar zbx_server (IP ou FQDN)
+    - name: Sanitizar entrada do Survey (server)
+      set_fact:
+        zbx_server_trim: "{{ zbx_server | trim }}"
+        zbx_version_trim: "{{ zbx_version | trim }}"
+
+    - name: Validar zbx_server (IPv4 ou FQDN)
+      vars:
+        _re_ipv4: '^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$'
+        _re_fqdn: '^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$'
       assert:
         that:
-          - zbx_server | length > 0
-          - zbx_server is match("^(?:(?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[A-Za-z0-9_.-]+)$")
-        fail_msg: "Defina 'zbx_server' (IP ou FQDN) no Survey."
+          - zbx_server_trim | length > 0
+          - (zbx_server_trim is match(_re_ipv4)) or (zbx_server_trim is match(_re_fqdn))
+        fail_msg: >
+          Valor inválido para zbx_server: "{{ zbx_server }}".
+          Use IPv4 (ex.: 192.168.31.35) ou FQDN (ex.: zabbix.homelab).
+      success_msg: "zbx_server validado (IPv4/FQDN)."
+
+    - name: Validar zbx_version (lista permitida)
+      assert:
+        that:
+          - zbx_version_trim in zbx_version_allowed
+        fail_msg: >
+          Versão '{{ zbx_version }}' não suportada neste playbook.
+          Escolha uma de: {{ zbx_version_allowed | join(', ') }}.
+      success_msg: "zbx_version = {{ zbx_version_trim }} (ok)."
 
     - name: Definir hostname do agente (FQDN ou curto)
       set_fact:
-        zbx_hostname_value: "{{ (zbx_use_fqdn | bool) | ternary(ansible_fqdn, ansible_hostname) }}"
+        zbx_hostname_value: "{{ (zbx_use_fqdn | default(false) | bool) | ternary(ansible_fqdn, ansible_hostname) }}"
 
   tasks:
     ###########################################################################
@@ -114,13 +111,13 @@ zbx_server_container_name: "zabbix-server"
     - name: Instalar Zabbix Agent 2 — família RedHat
       when: ansible_os_family == "RedHat"
       block:
-        - name: Descobrir major version
+        - name: Major version RHEL-like
           set_fact:
             rhel_major: "{{ ansible_distribution_major_version }}"
 
-        - name: Baixar repo zabbix-release.rpm
+        - name: Baixar repo Zabbix (zabbix-release.rpm)
           get_url:
-            url: "https://repo.zabbix.com/zabbix/{{ zbx_version }}/release/rhel/{{ rhel_major }}/noarch/zabbix-release-latest.el{{ rhel_major }}.noarch.rpm"
+            url: "https://repo.zabbix.com/zabbix/{{ zbx_version_trim }}/release/rhel/{{ rhel_major }}/noarch/zabbix-release-latest.el{{ rhel_major }}.noarch.rpm"
             dest: "/tmp/zabbix-release-latest.el{{ rhel_major }}.noarch.rpm"
             mode: '0644'
 
@@ -158,7 +155,7 @@ zbx_server_container_name: "zabbix-server"
 
         - name: Adicionar repositório Zabbix (Apt)
           apt_repository:
-            repo: "deb https://repo.zabbix.com/zabbix/{{ zbx_version }}/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main"
+            repo: "deb https://repo.zabbix.com/zabbix/{{ zbx_version_trim }}/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main"
             state: present
             filename: "zabbix"
 
@@ -173,7 +170,7 @@ zbx_server_container_name: "zabbix-server"
     ###########################################################################
     # Configuração do agente
     ###########################################################################
-    - name: Backup de /etc/zabbix/zabbix_agent2.conf (se existir)
+    - name: Backup do zabbix_agent2.conf (se existir)
       copy:
         src: "{{ zbx_conf }}"
         dest: "{{ zbx_conf }}.bak"
@@ -185,14 +182,14 @@ zbx_server_container_name: "zabbix-server"
       lineinfile:
         path: "{{ zbx_conf }}"
         regexp: '^Server=.*'
-        line: "Server={{ zbx_server }}"
+        line: "Server={{ zbx_server_trim }}"
       notify: Restart zabbix-agent2
 
     - name: Ajustar ServerActive
       lineinfile:
         path: "{{ zbx_conf }}"
         regexp: '^ServerActive=.*'
-        line: "ServerActive={{ zbx_server }}"
+        line: "ServerActive={{ zbx_server_trim }}"
       notify: Restart zabbix-agent2
 
     - name: Ajustar Hostname
@@ -203,7 +200,7 @@ zbx_server_container_name: "zabbix-server"
       notify: Restart zabbix-agent2
 
     ###########################################################################
-    # Firewall condicional — só adiciona regra se o firewall estiver ATIVO
+    # Firewall condicional — só se ativo
     ###########################################################################
     - name: Coletar facts de serviços
       service_facts:
@@ -216,7 +213,7 @@ zbx_server_container_name: "zabbix-server"
              and (ansible_facts.services['firewalld.service'].state == 'running') }}
       when: ansible_os_family == "RedHat"
 
-    - name: Adicionar porta no firewalld (apenas se ativo)
+    - name: Adicionar porta no firewalld (apenas se ativo e permitido)
       ansible.posix.firewalld:
         port: "{{ zbx_agent_port }}/tcp"
         permanent: true
@@ -224,6 +221,7 @@ zbx_server_container_name: "zabbix-server"
         immediate: true
       when:
         - ansible_os_family == "RedHat"
+        - zbx_firewall_manage_if_active | bool
         - firewalld_running | bool
       notify: Reload firewalld
 
@@ -239,13 +237,14 @@ zbx_server_container_name: "zabbix-server"
         ufw_active: "{{ (ufw_status.stdout | default('')) is search('Status:\\s+active') }}"
       when: ansible_os_family == "Debian"
 
-    - name: Adicionar porta no UFW (apenas se ativo)
+    - name: Adicionar porta no UFW (apenas se ativo e permitido)
       community.general.ufw:
         rule: allow
         port: "{{ zbx_agent_port }}"
         proto: tcp
       when:
         - ansible_os_family == "Debian"
+        - zbx_firewall_manage_if_active | bool
         - ufw_active | bool
 
     ###########################################################################
@@ -259,7 +258,7 @@ zbx_server_container_name: "zabbix-server"
         daemon_reload: true
 
     - name: Verificar porta local ({{ zbx_agent_port }})
-      command: "ss -lnt '( sport = :{{ zbx_agent_port }} )'"
+      command: "ss -ltn sport = :{{ zbx_agent_port }}"
       register: ss_check
       changed_when: false
       failed_when: false
@@ -278,7 +277,7 @@ zbx_server_container_name: "zabbix-server"
       debug:
         msg: "zabbix_get local: {{ zbxget_local.stdout | default('sem saída') }}"
 
-    # Validação remota opcional via container do Zabbix Server
+    # (Opcional) Validação remota via container do Zabbix Server
     - name: Teste remoto (container) — opcional
       delegate_to: "{{ zbx_server_container_host }}"
       when: zbx_remote_validate | bool
@@ -306,11 +305,13 @@ zbx_server_container_name: "zabbix-server"
       when: firewalld_running | default(false) | bool
 ```
 
+> Observação: **nada de Jinja auto-referenciando variáveis** nos defaults. O Survey vai **sobrepor** os valores de `zbx_version` e `zbx_server` quando você quiser.
+
 ---
 
-## 🧩 Criar o **Job Template** (depois faremos o Survey)
+## ▶️ Criar o **Job Template** no AWX (e só depois o Survey)
 
-1. **Projects →** confirme o projeto com `zabbix_agent2_awx.yml` e **Sync**.
+1. **Projects →** confirme o repositório e rode **Sync**.
 2. **Templates → Add → Job Template**
 
    * **Name:** `Zabbix Agent 2 — Instalação`
@@ -318,88 +319,79 @@ zbx_server_container_name: "zabbix-server"
    * **Inventory:** *seu inventário*
    * **Project:** *seu projeto*
    * **Playbook:** `zabbix_agent2_awx.yml`
-   * **Execution Environment:** com as collections instaladas
-   * **Credentials:** `Machine` (SSH)
-   * **Privilege Escalation:** habilite se necessário (`become`)
+   * **Execution Environment:** com as collections do `requirements.yml`
+   * **Credentials:** Machine (SSH)
+   * **Options:** habilite `Privilege Escalation` se precisar de `sudo`
    * **Save**.
 
-> Agora edite o Template salvo e **adicione o Survey**.
-
 ---
 
-## 📝 **Survey — Perguntas e validações (ordem correta)**
+## 📝 **Survey — Perguntas (ordem correta + defaults que você pediu)**
 
-**1) Zabbix Server (IP/FQDN)**
+**1) Zabbix Version (major)**
 
+* *Prompt:* `Zabbix Version (major)`
+* *Variable:* `zbx_version`
+* *Answer type:* `Multiple Choice`
+
+  * Choices: `7.4`, `7.2`, `6.4`
+  * **Default answer:** `7.4` ✅
+* *Description:* “Versão do repositório oficial a usar (apenas essas são aceitas).”
+
+**2) Zabbix Server (IP/FQDN)**
+
+* *Prompt:* `Zabbix Server (IP/FQDN)`
 * *Variable:* `zbx_server`
-* *Type:* `Text` • *Required:* ✔
-* *Validation (Regex):*
+* *Answer type:* `Text`
+* **Default answer:** `192.168.31.35` ✅
+* *Required:* ✔
+* *Description:* “Use IPv4 (ex.: 192.168.31.35) ou FQDN.”
 
-  ```
-  ^((?:\d{1,3}\.){3}\d{1,3}|[A-Za-z0-9_.-]+)$
-  ```
-* *Help:* “Endereço do seu Zabbix Server. Ex.: `192.168.31.35` ou `zabbix.homelab`.”
-
-**2) Usar FQDN como Hostname?**
+**3) Usar FQDN como Hostname?**
 
 * *Variable:* `zbx_use_fqdn`
-* *Type:* `Multiple Choice` → `true` / `false` (default `false`)
-* *Help:* “`true` usa `ansible_fqdn`; `false` usa `ansible_hostname`.”
+* *Answer type:* `Multiple Choice` → `true` / `false` (default `false`)
+* *Description:* “`true` usa ansible\_fqdn; `false` usa ansible\_hostname.”
 
-**3) Porta do agente**
+**4) Porta do agente**
 
 * *Variable:* `zbx_agent_port`
-* *Type:* `Integer` • *Default:* `10050` • *Min:* `1` • *Max:* `65535`
-* *Help:* “Porta TCP do zabbix-agent2.”
+* *Answer type:* `Integer` • Default `10050` • Min `1` • Max `65535`.
 
-**4) Adicionar regra de firewall se o firewall estiver ATIVO?**
+**5) Gerenciar regra de firewall se ativo?**
 
 * *Variable:* `zbx_firewall_manage_if_active`
-* *Type:* `Multiple Choice` → `true` / `false` (default `true`)
-* *Help:* “Se `true`, adiciona `{{ zbx_agent_port }}/tcp` **somente** se `firewalld`/`UFW` já estiverem ativos.”
+* *Answer type:* `Multiple Choice` → `true` / `false` (default `true`)
+* *Description:* “Adiciona a porta **{{ zbx\_agent\_port }}/tcp** apenas se `firewalld`/`UFW` já estiverem **ativos**.”
 
-> Para usar essa pergunta, inclua duas pequenas mudanças no playbook:
-> a) adicione `zbx_firewall_manage_if_active: "{{ zbx_firewall_manage_if_active | default(true) }}"` em `vars`;
-> b) acrescente a condição `- zbx_firewall_manage_if_active | bool` nas tasks de firewalld/UFW.
+**(Opcional) 6–8) Validação remota via container**
 
-**5) Validação remota pelo container do Zabbix Server (opcional)**
+* `zbx_remote_validate` (Multiple Choice `true/false`, default `false`)
+* `zbx_server_container_host` (Text, default `192.168.31.35`)
+* `zbx_container_runtime` (Multiple Choice `docker/podman`, default `docker`)
+* `zbx_server_container_name` (Text, default `zabbix-server`)
 
-* *Variable:* `zbx_remote_validate`
-* *Type:* `Multiple Choice` → `true` / `false` (default `false`)
-* *Help:* “Executa `zabbix_get` de dentro do container na VM `192.168.31.35`.”
-
-**6) Host do container do Zabbix Server**
-
-* *Variable:* `zbx_server_container_host`
-* *Type:* `Text` • *Default:* `192.168.31.35`
-
-**7) Runtime do container**
-
-* *Variable:* `zbx_container_runtime`
-* *Type:* `Multiple Choice` → `docker` / `podman` (default `docker`)
-
-**8) Nome do container do Zabbix Server**
-
-* *Variable:* `zbx_server_container_name`
-* *Type:* `Text` • *Default:* `zabbix-server`
-
-> Se quiser manter o playbook enxuto, você pode **pular as perguntas 5–8** (a validação local já é suficiente).
+> Importante: o AWX **não** tem “regex validation” no Survey. As **validações reais** estão no `pre_tasks` (asserts de IPv4/FQDN e versão permitida).
 
 ---
 
-## ▶️ Execução e validações
+## 🧪 Execução e validações
 
-* Rode o **Job** e confira no output:
+* Rode o Job. No output, verifique:
 
-  * `zabbix_get local: 1` (ok)
-  * `ss -lnt '( sport = :10050 )'` mostra a porta em escuta
-  * Logs de firewall **só** se o firewall estiver ativo (e `zbx_firewall_manage_if_active=true`)
+  * `zbx_version = 7.4 (ok)` (ou a escolha do Survey).
+  * `zbx_server validado (IPv4/FQDN).`
+  * Instalação do repo + `zabbix-agent2` e `zabbix-get`.
+  * Edição de `Server`, `ServerActive`, `Hostname`.
+  * **Firewall:** só há tasks se o serviço já estiver **ativo** e `zbx_firewall_manage_if_active=true`.
+  * `ss -ltn sport = :10050` exibindo a porta em escuta.
+  * `zabbix_get local: 1`.
 
-* Validação manual extra na VM `192.168.31.35` (Zabbix em container):
+Validação manual extra (da VM `192.168.31.35`, se quiser):
 
 ```bash
 docker exec -it zabbix-server zabbix_get -s <IP_DO_HOST_AGENTE> -k agent.ping
-# ou, se usa Podman:
+# ou
 podman exec -it zabbix-server zabbix_get -s <IP_DO_HOST_AGENTE> -k agent.ping
 ```
 
@@ -413,30 +405,27 @@ systemctl status zabbix-agent2
 journalctl -u zabbix-agent2 -n 200 --no-pager
 
 # Testes locais
+ss -ltn sport = :10050
 zabbix_get -s 127.0.0.1 -p 10050 -k agent.ping
-ss -lnt '( sport = :10050 )'
 
-# Firewalld ativo?
+# Firewalld (RHEL-like)
 systemctl is-active firewalld && firewall-cmd --list-ports
 
-# UFW ativo?
+# UFW (Debian/Ubuntu)
 ufw status verbose
 ```
 
-Pontos de atenção:
-
-* `zbx_server` precisa ser roteável a partir do agente (para *active checks*).
-* Se seu `zabbix_agent2.conf` estiver muito custom, `lineinfile` mantém só as três diretivas alvo.
+Se der erro de versão, o assert aponta o valor aceito. Para ampliar a lista, basta adicionar versões a `zbx_version_allowed` e publicar.
 
 ---
 
 ## ✅ Checklist final
 
-* Projeto contém `requirements.yml` e `zabbix_agent2_awx.yml`.
-* Job Template criado e salvo; **Survey adicionado depois**.
-* Variáveis cruciais no Survey: `zbx_server`, `zbx_use_fqdn`, `zbx_agent_port`.
-* Firewall: regra só se **ativo** (e conforme sua opção no Survey).
-* Output mostra `agent.ping = 1`.
+* `requirements.yml` com versões compatíveis.
+* `zabbix_agent2_awx.yml` aplicado (defaults 7.4 e 192.168.31.35).
+* Job Template criado → **Survey adicionado** (com os defaults acima).
+* Execução concluída com `agent.ping = 1`.
+* Firewall tocado **apenas** quando ativo (e autorizado).
 
 ---
 
