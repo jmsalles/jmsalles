@@ -32,8 +32,7 @@ cat ~/.ssh/id_ed25519.pub
 > Usa seu inventário (hypervisors, VMs, Windows, k8s), role `os_patch_dnf` e playbooks DNF.
 
 ```bash
-mkdir -p ~/awx-project/{playbooks,roles,group_vars,host_vars,collections}
-mkdir -p ~/awx-project/roles/os_patch_dnf/{tasks,defaults}
+setti
 cd ~/awx-project
 ```
 
