@@ -40,13 +40,7 @@ sudo dnf -y install epel-release
 ## 🛠️ Pacotes base
 
 ```bash
-sudo dnf -y install \
-  vim-enhanced bash-completion \
-  man-db man-pages \
-  less tree which \
-  tar zip unzip bzip2 xz pigz p7zip p7zip-plugins \
-  wget curl rsync \
-  openssh-clients ca-certificates
+sudo dnf -y install vim-enhanced bash-completion man-db man-pages less tree which tar zip unzip bzip2 xz pigz p7zip p7zip-plugins wget curl rsync openssh-clients ca-certificates
 ```
 
 ---
@@ -54,12 +48,7 @@ sudo dnf -y install \
 ## 🌐 Rede e diagnóstico
 
 ```bash
-sudo dnf -y install \
-  iproute iputils net-tools ethtool \
-  nmap-ncat nmap tcpdump traceroute mtr \
-  bind-utils socat telnet \
-  lsof strace htop iotop perf \
-  policycoreutils setools-console
+sudo dnf -y install iproute iputils net-tools ethtool  nmap-ncat nmap tcpdump traceroute mtr bind-utils socat telnet lsof strace htop iotop perf policycoreutils setools-console
 ```
 
 ---
@@ -69,15 +58,7 @@ sudo dnf -y install \
 ```bash
 sudo dnf -y groupinstall "Development Tools"
 
-sudo dnf -y install \
-  gcc gcc-c++ make cmake ninja-build \
-  pkgconf pkgconf-pkg-config \
-  autoconf automake libtool \
-  kernel-headers kernel-devel \
-  elfutils-libelf-devel \
-  openssl-devel zlib-devel \
-  libffi-devel bison flex \
-  python3 python3-pip
+sudo dnf -y install gcc gcc-c++ make cmake ninja-build pkgconf pkgconf-pkg-config autoconf automake libtool kernel-headers kernel-devel elfutils-libelf-devel openssl-devel zlib-devel libffi-devel bison flex python3 python3-pip
 ```
 
 ---
@@ -150,9 +131,7 @@ sudo timedatectl set-timezone America/Sao_Paulo
 ## 💻 Virtualização (KVM/libvirt)
 
 ```bash
-sudo dnf -y install \
-  qemu-kvm libvirt virt-install virt-viewer \
-  libvirt-client
+sudo dnf -y install qemu-kvm libvirt virt-install virt-viewer libvirt-client
 sudo systemctl enable --now libvirtd
 ```
 
@@ -169,9 +148,7 @@ sudo dnf -y install podman buildah skopeo crun
 ## ✨ Extras úteis
 
 ```bash
-sudo dnf -y install git jq yq \
-  parted lvm2 smartmontools \
-  atop ncdu
+sudo dnf -y install git jq yq parted lvm2 smartmontools atop ncdu
 ```
 
 ---
