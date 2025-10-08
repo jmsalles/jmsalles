@@ -403,7 +403,8 @@ sudo dnf install -y libreoffice libreoffice-langpack-pt-BR \
 ### 11.2 Comunicação (Flatpak)
 
 ```bash
-flatpak install -y flathub com.discordapp.Discord \
+flatpak install -y $ git config --global user.email johndoe@example.com
+flathub com.discordapp.Discord \
   org.telegram.desktop com.slack.Slack com.skype.Client us.zoom.Zoom \
   com.github.eneshecan.WhatsAppForLinux
 ```
