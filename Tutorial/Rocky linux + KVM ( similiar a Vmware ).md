@@ -82,15 +82,14 @@ vgchange -ay
 
 ```bash
 dnf -y groupinstall "Virtualization"
-dnf -y install virt-install virt-viewer \
-  libvirt-daemon-driver-storage libvirt-daemon-driver-storage-logical
+dnf -y install libvirtd virt-install virt-viewer libvirt-daemon-driver-storage libvirt-daemon-driver-storage-logical
 ```
 
 2. **Ativar libvirtd**:
 
 ```bash
 systemctl enable --now libvirtd
-usermod -aG libvirt $USER   # depois faça logout/login
+usermod -aG  libvirt $USER   # depois faça logout/login
 virt-host-validate
 ```
 
