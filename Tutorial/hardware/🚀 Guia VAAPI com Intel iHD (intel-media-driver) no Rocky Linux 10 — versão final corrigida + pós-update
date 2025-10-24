@@ -1,0 +1,396 @@
+# 🚀 Guia VAAPI com Intel iHD (intel-media-driver) no Rocky Linux 10 — **versão final corrigida + pós-update**
+
+## 🔎 Resumo
+
+Tutorial **funcional** para habilitar aceleração de vídeo via **VAAPI** usando o driver **Intel iHD** no **Rocky Linux 10**. Cobrimos checagens de hardware/kernel, **compilação correta** (com as flags atuais do Meson), instalação do `libva-utils` (vainfo), configuração do ambiente, **testes** e — **novo** — a seção de **pós-atualização de kernel/sistema**: quando (não) precisa refazer algo e como validar/recuperar rápido.
+
+Correções já aplicadas:
+
+* Removidos pacotes Xorg desnecessários.
+* `meson`: usar **`yes/no/auto`** (não `true/false`) e **sem** `-Dwith_drm` (opção removida).
+* Garantido `cmake/meson/ninja` via DNF (ou fallback via `pip`).
+* Logs “**Cannot find any crtc**” e “**disabling eDP**” são normais em servidor/headless.
+
+---
+
+## 🧭 Sumário
+
+* [Visão geral](#visão-geral)
+* [Pré-requisitos](#pré-requisitos)
+* [Checagens rápidas](#checagens-rápidas)
+* [Compilação e instalação (ordem correta)](#compilação-e-instalação-ordem-correta)
+
+  * [1) gmmlib](#1-gmmlib)
+  * [2) libva](#2-libva)
+  * [3) libva-utils (vainfo)](#3-libva-utils-vainfo)
+  * [4) intel-media-driver (iHD)](#4-intel-media-driver-ihd)
+* [Configuração do ambiente](#configuração-do-ambiente)
+* [Testes práticos](#testes-práticos)
+* [📦 Pós-atualização (kernel/sistema): preciso refazer algo?](#pós-atualização-kernelsistema-preciso-refazer-algo)
+* [Troubleshooting (erros comuns)](#troubleshooting-erros-comuns)
+* [Checklist rápido](#checklist-rápido)
+* [Referências rápidas](#referências-rápidas)
+* [FAQ](#faq)
+* [Assinatura](#assinatura)
+
+---
+
+## Visão geral
+
+Pipeline VAAPI na iGPU Intel:
+
+```
+Apps (ffmpeg/mpv/navegadores)
+        ↓
+      libva / libva-utils (vainfo)
+        ↓
+  intel-media-driver (iHD)
+        ↓
+   Kernel i915 (DRM/KMS) + firmware (DMC/GuC/HuC)
+```
+
+Para **Gen9+** (Skylake/Kaby Lake…), use **iHD** (não i965). O backend **DRM** é autodetectado pelo `libva` quando `libdrm` está presente.
+
+---
+
+## Pré-requisitos
+
+```bash
+sudo dnf config-manager --set-enabled crb
+sudo dnf -y upgrade --refresh
+sudo dnf -y install epel-release dnf-plugins-core
+sudo dnf -y groupinstall "Development Tools"
+sudo dnf -y install cmake meson ninja-build python3-pip \
+  pkgconf-pkg-config pkgconf \
+  git gcc gcc-c++ make automake autoconf libtool \
+  libdrm libdrm-devel libpciaccess-devel \
+  libX11-devel libXext-devel libXfixes-devel libXrandr-devel \
+  wayland-devel wayland-protocols-devel linux-firmware
+```
+
+Fallback (se `meson`/`ninja` não vierem via DNF):
+
+```bash
+python3 -m pip install --user meson ninja
+echo 'export PATH="$HOME/.local/bin:$PATH"' | sudo tee /etc/profile.d/localbin.sh
+source /etc/profile.d/localbin.sh
+```
+
+Validação rápida:
+
+```bash
+cmake --version
+meson --version
+ninja --version
+pkg-config --modversion libdrm
+```
+
+---
+
+## Checagens rápidas
+
+```bash
+lsmod | grep -i i915 || sudo modprobe i915
+ls -l /dev/dri
+dmesg | grep -i -E "i915|dmc" | tail -n 100
+```
+
+> Em **headless** é normal ver `disabling eDP` / `Cannot find any crtc` — não impede VAAPI.
+
+---
+
+## Compilação e instalação (ordem correta)
+
+### 1) gmmlib
+
+```bash
+cd /usr/src
+sudo rm -rf gmmlib
+sudo git clone https://github.com/intel/gmmlib.git
+cd gmmlib
+sudo rm -rf build
+sudo mkdir -p build && cd build
+sudo cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+sudo make -j"$(nproc)"
+sudo make install
+sudo ldconfig
+```
+
+### 2) libva  *(sem `-Dwith_drm`)*
+
+```bash
+cd /usr/src
+sudo rm -rf libva
+sudo git clone https://github.com/intel/libva.git
+cd libva
+sudo rm -rf build
+sudo meson setup build -Dprefix=/usr
+# (Opcional GUI) sudo meson setup build -Dprefix=/usr -Dwith_x11=yes -Dwith_wayland=yes
+sudo meson compile -C build
+sudo meson install -C build
+sudo ldconfig
+```
+
+### 3) libva-utils (vainfo)
+
+```bash
+cd /usr/src
+sudo rm -rf libva-utils
+sudo git clone https://github.com/intel/libva-utils.git
+cd libva-utils
+sudo rm -rf build
+sudo meson setup build -Dprefix=/usr
+sudo meson compile -C build
+sudo meson install -C build
+sudo ldconfig
+```
+
+### 4) intel-media-driver (iHD)
+
+```bash
+cd /usr/src
+sudo rm -rf media-driver
+sudo git clone https://github.com/intel/media-driver.git
+cd media-driver
+sudo rm -rf build
+sudo mkdir -p build && cd build
+sudo cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DINSTALL_DRIVER_SYSCONF=ON
+sudo make -j"$(nproc)"
+sudo make install
+sudo ldconfig
+
+ls -l /usr/lib64/dri/iHD_drv_video.so
+```
+
+---
+
+## Configuração do ambiente
+
+```bash
+sudo vim /etc/profile.d/vaapi.sh
+```
+
+Cole:
+
+```bash
+export LIBVA_DRIVER_NAME=iHD
+export LIBVA_DRIVERS_PATH=/usr/lib64/dri
+```
+
+Aplique e garanta acesso ao render node:
+
+```bash
+source /etc/profile.d/vaapi.sh
+getent group video || sudo groupadd video
+sudo usermod -aG video "$USER"
+# Faça logout/login para novas sessões herdarem o grupo.
+```
+
+---
+
+## Testes práticos
+
+```bash
+vainfo --display drm --device /dev/dri/renderD128 | sed -n '1,200p'
+ffmpeg -hide_banner -hwaccels
+```
+
+Transcode VAAPI (exemplos):
+
+```bash
+ffmpeg -hide_banner -y -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \
+  -i input.mp4 -vf 'format=nv12,hwupload' \
+  -c:v h264_vaapi -b:v 5M out-h264-vaapi.mp4
+```
+
+```bash
+ffmpeg -hide_banner -y -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \
+  -i input.mp4 -vf 'format=nv12,hwupload' \
+  -c:v hevc_vaapi -b:v 5M out-hevc-vaapi.mp4
+```
+
+---
+
+## 📦 Pós-atualização (kernel/sistema): preciso refazer algo?
+
+### Regra prática
+
+**Na maioria dos casos, não.** Atualizações normais de kernel/sistema **não** quebram o stack **gmmlib → libva/libva-utils → intel-media-driver**.
+
+### Quando **não** precisa refazer
+
+* Atualização de kernel via `dnf upgrade` e `linux-firmware`.
+* Atualizações de libs sem quebra de ABI.
+* Mudanças 10.x → 10.y sem alteração drástica de API do `libva`.
+
+### Validação pós-reboot (30 s)
+
+```bash
+uname -r
+ls -l /dev/dri
+dmesg | grep -i -E "i915|dmc|guc|huc" | tail -n 50
+vainfo --display drm --device /dev/dri/renderD128 | sed -n '1,80p'
+ffmpeg -hide_banner -hwaccels
+```
+
+Se `vainfo` mostrar **Intel iHD driver** e perfis (H.264/HEVC/VP9), está tudo bem.
+
+### Quando **pode** precisar refazer
+
+* Você removeu/alterou arquivos em **/usr/lib64/dri** ou **/usr/lib64**.
+* Atualizou para versões “bem novas” de `libva`/`libdrm` com quebra de compatibilidade.
+* Pacotes RPM sobrescreveram os mesmos caminhos.
+* Reinstalação limpa do sistema.
+
+**Sinais de quebra:**
+
+* `vainfo: error initializing VAAPI`
+* `symbol lookup error` em `vainfo`/`ffmpeg`
+* Carrega `i965` em vez de `iHD` mesmo com `LIBVA_DRIVER_NAME=iHD`
+
+### Recuperação mínima (sem recompilar do zero)
+
+Se as pastas de build ainda existem em `/usr/src`:
+
+```bash
+# gmmlib
+cd /usr/src/gmmlib/build
+sudo make install && sudo ldconfig
+
+# libva
+cd /usr/src/libva
+sudo meson install -C build && sudo ldconfig
+
+# libva-utils
+cd /usr/src/libva-utils
+sudo meson install -C build && sudo ldconfig
+
+# intel-media-driver
+cd /usr/src/media-driver/build
+sudo make install && sudo ldconfig
+```
+
+Se os diretórios foram apagados, recompile na mesma ordem (rápido):
+`gmmlib → libva → libva-utils → media-driver`.
+
+### Dicas
+
+* **Variáveis**: o `/etc/profile.d/vaapi.sh` persiste; não precisa refazer.
+* **Grupo `video`**: persiste; apenas novas sessões precisam relogar.
+* **GuC/HuC**: se aplicou `i915.enable_guc=2` com `grubby --update-kernel=ALL`, a flag vai para todos os kernels instalados. Em kernels novos:
+
+  ```bash
+  grubby --info=ALL | grep -i i915.enable_guc || echo "Sem flag; aplicar novamente."
+  ```
+* **Isolar de RPMs**: se quiser blindar futuras atualizações, pode reinstalar usuários em `/usr/local` (alterando `-DCMAKE_INSTALL_PREFIX=/usr/local` ou `-Dprefix=/usr/local` no Meson/CMake).
+
+---
+
+## Troubleshooting (erros comuns)
+
+* **Meson: `Unknown options: "with_drm"`**
+  `-Dwith_drm` foi removido. Use apenas `-Dprefix=/usr` (X11/Wayland opcionais).
+
+* **Meson: `Value "true"... use yes/no/auto`**
+  Meson aceita **`yes/no/auto`**, não `true/false`.
+
+* **`vainfo: error initializing VAAPI`**
+  Verifique `/dev/dri/renderD128`, grupo `video`, variáveis `LIBVA_*`, existência de `/usr/lib64/dri/iHD_drv_video.so`.
+
+* **Carregou i965 em vez de iHD**
+  Forçar:
+
+  ```bash
+  export LIBVA_DRIVER_NAME=iHD
+  export LIBVA_DRIVERS_PATH=/usr/lib64/dri
+  vainfo
+  ```
+
+* **Firmware/DMC**
+  Confirme `linux-firmware` e o DMC da sua geração em `dmesg`.
+
+---
+
+## Checklist rápido
+
+* `i915` carregado e `/dev/dri/renderD128` presente
+* `gmmlib` → `libva` → `libva-utils` → `intel-media-driver` instalados
+* **Sem** `-Dwith_drm`; Meson com `yes/no/auto`
+* `LIBVA_DRIVER_NAME=iHD` e `LIBVA_DRIVERS_PATH=/usr/lib64/dri` ativos
+* Usuário no grupo **video**
+* `vainfo` mostra **Intel iHD driver** + perfis
+* `ffmpeg -hwaccels` lista `vaapi` e transcoding funciona
+
+---
+
+## Referências rápidas
+
+```bash
+# Kernel / dispositivos
+lsmod | grep -i i915
+ls -l /dev/dri
+dmesg | grep -i -E "i915|dmc" | tail -n 100
+
+# Toolchain
+cmake --version
+meson --version
+ninja --version
+pkg-config --modversion libdrm
+```
+
+```bash
+# Build resumido — gmmlib
+cd /usr/src/gmmlib && sudo rm -rf build && sudo mkdir build && cd build && \
+  sudo cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
+  sudo make -j"$(nproc)" && sudo make install && sudo ldconfig
+```
+
+```bash
+# Build resumido — libva
+cd /usr/src/libva && sudo rm -rf build && sudo meson setup build -Dprefix=/usr && \
+  sudo meson compile -C build && sudo meson install -C build && sudo ldconfig
+```
+
+```bash
+# Build resumido — libva-utils
+cd /usr/src/libva-utils && sudo rm -rf build && sudo meson setup build -Dprefix=/usr && \
+  sudo meson compile -C build && sudo meson install -C build && sudo ldconfig
+```
+
+```bash
+# Build resumido — intel-media-driver
+cd /usr/src/media-driver && sudo rm -rf build && sudo mkdir build && cd build && \
+  sudo cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DINSTALL_DRIVER_SYSCONF=ON && \
+  sudo make -j"$(nproc)" && sudo make install && sudo ldconfig
+```
+
+```bash
+# Ambiente
+sudo vim /etc/profile.d/vaapi.sh
+# (colar LIBVA_DRIVER_NAME/DRIVERS_PATH)
+source /etc/profile.d/vaapi.sh
+```
+
+```bash
+# Testes
+vainfo --display drm --device /dev/dri/renderD128 | sed -n '1,200p'
+ffmpeg -hide_banner -hwaccels
+```
+
+---
+
+## FAQ
+
+**VAAPI precisa de Xorg/Wayland?** Não — em **headless** funciona via DRM (`/dev/dri/renderD128`).
+**Por que sem `-Dwith_drm`?** O `libva` autodetecta DRM; a flag foi removida.
+**Uso iHD ou i965?** Em Gen9+ use **iHD**; forçamos com `LIBVA_DRIVER_NAME=iHD`.
+**Logs `Cannot find any crtc` importam?** Em headless, **não**.
+
+---
+
+## Assinatura
+
+Criado por **Jeferson Salles**
+LinkedIn: [https://www.linkedin.com/in/jmsalles/](https://www.linkedin.com/in/jmsalles/)
+E-mail: [jefersonmattossalles@gmail.com](mailto:jefersonmattossalles@gmail.com)
+GitHub: [https://github.com/jmsalles/IaC/](https://github.com/jmsalles/IaC/)

@@ -58,7 +58,7 @@ sudo dnf -y install iproute iputils net-tools ethtool  nmap-ncat nmap tcpdump tr
 ```bash
 sudo dnf -y groupinstall "Development Tools"
 
-sudo dnf -y install gcc gcc-c++ make cmake ninja-build pkgconf pkgconf-pkg-config autoconf automake libtool kernel-headers kernel-devel elfutils-libelf-devel openssl-devel zlib-devel libffi-devel bison flex python3 python3-pip
+sudo dnf -y install gcc gcc-c++ make cmake ninja-build pkgconf pkgconf-pkg-config autoconf automake libtool kernel-headers kernel-devel elfutils-libelf-devel openssl-devel zlib-devel libffi-devel bison flex python3 python3-pip linux-firmware intel-gpu-firmware
 ```
 
 ---

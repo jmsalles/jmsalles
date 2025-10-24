@@ -74,12 +74,7 @@ sudo dnf install -y https://www.elrepo.org/elrepo-release-latest.el$(rpm -E %rhe
 ### Instalação única dos básicos
 
 ```bash
-sudo dnf install -y \
-  vim-enhanced bash-completion git curl wget rsync \
-  htop btop fzf ripgrep jq yq tree unzip p7zip p7zip-plugins unar \
-  neovim tmux lsof strace bind-utils nmap traceroute telnet mtr \
-  xfsprogs btrfs-progs exfatprogs ntfs-3g util-linux-user inxi \
-  tar policycoreutils-python-utils setools-console
+sudo dnf install -y linux-firmware intel-gpu-firmware  vim-enhanced bash-completion git curl wget rsync htop btop fzf ripgrep jq yq tree unzip p7zip p7zip-plugins unar neovim tmux lsof strace bind-utils nmap traceroute telnet mtr xfsprogs btrfs-progs exfatprogs ntfs-3g util-linux-user inxi tar policycoreutils-python-utils setools-console
 ```
 
 ### O que cada pacote faz (resumo)
