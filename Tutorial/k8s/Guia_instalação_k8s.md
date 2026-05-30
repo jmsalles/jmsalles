@@ -369,6 +369,7 @@ sudo firewall-cmd --reload
 
 ```bash
 kubectl completion bash | sudo tee /etc/bash_completion.d/kubectl >/dev/null
+kubeadm completion bash | tee /etc/bash_completion.d/kubadm >/dev/null
 ```
 
 **Ativar o autocompletar para o seu usuário (shell Bash):**
