@@ -1,0 +1,87 @@
+Segue a versão corrigida com a parte de disco ajustada e a proposta de tags por ambiente Dev e HM.
+
+Proposta de modernização da estrutura de pipeline da arquitetura
+
+Atualmente, boa parte da esteira de CI/CD da ANS ainda está concentrada em runners executando em estruturas legadas baseadas em Portainer/Docker, originalmente em HM e, possivelmente, também em DS. Embora essa arquitetura tenha atendido por um período, ela apresenta sinais claros de limitação operacional, principalmente por depender de versões antigas de Docker, ambientes menos padronizados e componentes que já vêm gerando problemas crônicos durante execuções de pipeline, builds de imagem e push para o registry.
+
+Um ponto importante é que grande parte das pipelines hoje roda sem uso de tag específica. Como validação inicial, foi criado um novo GitLab Runner no ambiente Kubernetes de DS. Inicialmente o runner foi criado com tag dedicada e, posteriormente, também foi permitido que ele executasse pipelines untagged. Durante os testes, o runner apresentou bom comportamento, com execução estável e sem os mesmos impactos observados na estrutura legada.
+
+O runner validado está rodando com as seguintes informações:
+
+Nome do runner/pod: gitlab-runner-ans-kubernetes-dev-5dcdcdc87b-gb4bk
+
+Namespace: gitlab-runner
+
+Node: ansdsk8ssvc01
+
+IP do pod: 10.240.8.140
+
+Status: Running
+
+Service Account: gitlab-runner-ans-kubernetes-dev
+
+Esse runner está em execução há aproximadamente 34 dias, o que demonstra estabilidade operacional inicial dentro do ambiente Kubernetes.
+
+Também foi evidenciado que o nó ansdsk8ssvc01 possui boa capacidade disponível e está com baixa utilização. O node possui 8 CPUs, aproximadamente 62 GB de memória e capacidade para até 110 pods. Na análise dos recursos alocados, o ambiente apresentava aproximadamente 17% de CPU request e 4% de memory request, indicando baixa pressão de carga e boa margem para execução controlada de pipelines.
+
+Com relação ao disco, a nova validação mostrou que não existe gargalo imediato no filesystem raiz do node. O filesystem /dev/mapper/ol-root possui aproximadamente 94 GB, com 18 GB utilizados, 77 GB disponíveis e apenas 20% de uso. O /boot também está saudável, com aproximadamente 27% de uso, e o /boot/efi com apenas 1% de uso.
+
+Dessa forma, neste momento não há indicação de saturação de disco no node. Ainda assim, como pipelines de build podem gerar camadas temporárias, cache, imagens intermediárias e artefatos, recomendo manter monitoramento contínuo de disco e avaliar, futuramente, volume dedicado ou estratégia de cache externo caso o volume de builds aumente.
+
+A proposta inicial é migrar gradualmente a execução das pipelines para a estrutura Kubernetes, utilizando GitLab Runner com Kubernetes Executor. Essa abordagem é mais atual, mais aderente ao modelo cloud-native e permite maior controle por namespace, ServiceAccount, RBAC, requests, limits, tolerations, isolamento entre workloads e execução efêmera dos jobs.
+
+A proposta de organização dos runners deve ser feita por ambiente, evitando misturar workloads de Dev e HM no mesmo runner. A ideia seria definir runners separados para cada ambiente Kubernetes, por exemplo:
+
+Runner Dev executando no ambiente Kubernetes de Dev.
+
+Runner HM executando no ambiente Kubernetes de HM.
+
+Com isso, as pipelines de Dev usariam tags específicas do ambiente Dev e as pipelines de HM usariam tags específicas do ambiente HM. Essa separação reduz risco operacional, melhora rastreabilidade, facilita troubleshooting e evita que uma pipeline de homologação consuma recursos ou execute jobs em estrutura destinada a desenvolvimento.
+
+Exemplo de proposta de tags:
+
+dev
+
+kubernetes-dev
+
+runner-dev
+
+hm
+
+kubernetes-hm
+
+runner-hm
+
+A habilitação de pipelines untagged pode ser mantida apenas como estratégia temporária de transição, para evitar impacto imediato nas pipelines existentes. Porém, do ponto de vista de arquitetura, o ideal é evoluir para uma esteira com tags padronizadas por ambiente, garantindo que cada pipeline execute no runner correto.
+
+Outro ganho importante é reduzir a dependência da estrutura legada de Portainer/Docker para execução de CI/CD. O Portainer pode continuar sendo utilizado para gestão de stacks quando necessário, mas não deveria ser o principal ponto de sustentação da esteira de pipeline, principalmente quando já existe uma plataforma Kubernetes disponível, mais atual e mais aderente a práticas modernas de DevOps, GitOps, DevSecOps e automação de infraestrutura.
+
+Além disso, a execução de jobs no Kubernetes permite melhor elasticidade operacional, pois os pods de pipeline são criados sob demanda, executam a atividade necessária e são finalizados ao término do job. Isso reduz acúmulo de resíduos no host, melhora o isolamento entre execuções e facilita a governança dos recursos consumidos por cada pipeline.
+
+Com relação ao Nexus, também existe um ponto crítico a ser tratado. A versão atual identificada é Sonatype Nexus Repository Manager OSS 3.21.2-03, com build de 2020. A própria interface do Nexus apresenta alertas de vulnerabilidade crítica e recomenda atualização para versões mais recentes. Além da questão de segurança, tenho enfrentado problemas práticos ao realizar push de imagens geradas com versões mais novas do Docker.
+
+Um exemplo é a necessidade de forçar o build usando o builder clássico do Docker:
+
+```bash
+DOCKER_BUILDKIT=0 docker build --no-cache --pull -t ans_airflow:3.2.1 -f Dockerfile .
+```
+
+Esse parâmetro funciona como contorno porque desativa o BuildKit e força um formato de build mais antigo, aumentando a compatibilidade com o Nexus atual. Porém, isso não deveria ser uma dependência permanente da esteira. Recursos como BuildKit, buildx, imagens OCI, cache moderno de build, multi-stage build e boas práticas de supply chain security já são padrões comuns em pipelines modernas.
+
+Manter o Nexus em versão antiga gera três riscos principais:
+
+Risco operacional, por falhas de compatibilidade com versões mais novas do Docker.
+
+Risco de segurança, devido aos alertas críticos apresentados pela própria ferramenta.
+
+Risco de evolução, pois limita o uso de práticas modernas de build, registry e automação.
+
+Dessa forma, a proposta possui dois eixos principais:
+
+1. Modernizar a execução das pipelines, migrando gradualmente os runners para Kubernetes.
+
+2. Avaliar a atualização do Nexus para uma versão mais recente, compatível com padrões atuais de Docker, OCI Registry, BuildKit e boas práticas de segurança.
+
+Como encaminhamento, sugiro iniciar com uma fase controlada em Dev, utilizando o runner Kubernetes já validado, e posteriormente replicar o modelo para HM com um runner próprio no ambiente Kubernetes de HM. Durante essa fase, podemos acompanhar tempo de execução, consumo de CPU, memória, uso de disco, estabilidade dos pods de job, comportamento de cache e compatibilidade com build e push de imagens.
+
+Após a validação, a migração pode ser expandida gradualmente, evitando uma troca brusca da esteira atual. A proposta não é apenas trocar o local onde o runner executa, mas evoluir a arquitetura de pipeline para um modelo mais moderno, seguro, escalável e sustentável, reduzindo dependência de componentes legados e preparando o ambiente para práticas mais atuais de CI/CD, GitOps, DevSecOps e gestão de artefatos.
