@@ -1,25 +1,34 @@
+Segue o tutorial completo revisado, **sem o endpoint `/service/rest/v1/status/check`**, pois no seu ambiente ele retornou `403` sem autenticação.
+
 # Guia de monitoramento do Nexus no Zabbix
 
 ## 1. Objetivo
 
-Este documento descreve como monitorar o Nexus Repository instalado em Docker no host fisico Docker HML.
+Este documento descreve como monitorar o Nexus Repository instalado em Docker no host físico Docker HML.
 
-O monitoramento sera feito no Zabbix existente da rede, utilizando o Zabbix Agent 2 instalado no host:
+O monitoramento será feito no Zabbix existente da rede, utilizando o Zabbix Agent 2 instalado no host:
 
 ```text
 docker-hml.jmsalles.homelab.br
 ```
 
-Nesta etapa, o foco sera apenas no Nexus Repository e no registry Docker publicado pelo Nexus.
+Nesta etapa, o foco será apenas no Nexus Repository e no registry Docker publicado pelo Nexus.
 
-Nao serao monitorados neste documento:
+Não serão monitorados neste documento:
 
 ```text
 Gitea
 Vault
 Runner
 Backups
-Outras aplicacoes
+Outras aplicações
+```
+
+Observação importante:
+
+```text
+O endpoint /service/rest/v1/status/check foi removido deste tutorial porque no ambiente retornou HTTP 403 sem autenticação.
+O monitoramento de saúde principal será feito pelo endpoint /service/rest/v1/status.
 ```
 
 ---
@@ -37,38 +46,38 @@ Outras aplicacoes
 | Porta Docker group     | `5000`                                 |
 | Porta Docker hosted    | `5001`                                 |
 | Porta Docker proxy     | `5002`                                 |
-| Diretorio base         | `/home/jmsalles/nexus`                 |
-| Diretorio de dados     | `/home/jmsalles/nexus/nexus-data`      |
+| Diretório base         | `/home/jmsalles/nexus`                 |
+| Diretório de dados     | `/home/jmsalles/nexus/nexus-data`      |
 | Proxy reverso          | Nginx em Docker                        |
 | Zabbix Agent           | Zabbix Agent 2                         |
 
 ---
 
-## 3. Observacao sobre certificado interno
+## 3. Observação sobre certificado interno
 
 O ambiente utiliza certificado interno ou autoassinado.
 
-Por esse motivo, os testes via `curl` no Zabbix Agent usarao a opcao `-k`.
+Por esse motivo, os testes via `curl` no Zabbix Agent usarão a opção `-k`.
 
-Essa opcao ignora a validacao da cadeia de certificado.
+Essa opção ignora a validação da cadeia de certificado.
 
-Caso apareca o erro abaixo em testes manuais com `curl` sem `-k`, o problema esta relacionado a cadeia do certificado nao estar instalada como confiavel no Linux ou no container do Zabbix.
+Caso apareça o erro abaixo em testes manuais com `curl` sem `-k`, o problema está relacionado à cadeia do certificado não estar instalada como confiável no Linux ou no container do Zabbix.
 
 ```text
 curl: (60) SSL certificate problem: unable to get local issuer certificate
 ```
 
-Neste momento, nao sera feita a instalacao da CA raiz. O monitoramento seguira usando `curl -k`.
+Neste momento, não será feita a instalação da CA raiz. O monitoramento seguirá usando `curl -k`.
 
 ---
 
-## 4. O que sera monitorado
+## 4. O que será monitorado
 
 | Camada     | Monitoramento                                |
 | ---------- | -------------------------------------------- |
-| Aplicacao  | HTTPS da interface web do Nexus              |
-| Aplicacao  | Status API do Nexus                          |
-| Aplicacao  | HTTP local na porta `8081`                   |
+| Aplicação  | HTTPS da interface web do Nexus              |
+| Aplicação  | Status API do Nexus                          |
+| Aplicação  | HTTP local na porta `8081`                   |
 | Registry   | HTTPS do `registry.jmsalles.homelab.br/v2/`  |
 | Registry   | HTTP local na porta `5001`                   |
 | Portas     | `8081`, `5000`, `5001`, `5002`               |
@@ -80,11 +89,11 @@ Neste momento, nao sera feita a instalacao da CA raiz. O monitoramento seguira u
 | Web        | Web Scenario da interface web                |
 | Web        | Web Scenario do registry                     |
 
-Observacao:
+Observação:
 
 ```text
-Os itens de tamanho de diretorio, logs e blobs serao criados apenas para consulta em Latest data.
-Neste momento, nao serao criadas triggers de capacidade para esses itens.
+Os itens de tamanho de diretório, logs e blobs serão criados apenas para consulta em Latest data.
+Neste momento, não serão criadas triggers de capacidade para esses itens.
 ```
 
 ---
@@ -149,16 +158,16 @@ Resultado esperado:
 HTTP/1.1 200 OK
 ```
 
-Valide o status check do Nexus.
-
-```bash
-curl -k -I https://nexus.jmsalles.homelab.br/service/rest/v1/status/check
-```
-
-Resultado esperado:
+Não usaremos o endpoint abaixo neste tutorial:
 
 ```text
-HTTP/1.1 200 OK
+https://nexus.jmsalles.homelab.br/service/rest/v1/status/check
+```
+
+Motivo:
+
+```text
+No ambiente atual, ele retornou HTTP 403 sem autenticação.
 ```
 
 Valide o registry pelo Nginx.
@@ -173,7 +182,7 @@ Resultado esperado:
 HTTP/1.1 401 Unauthorized
 ```
 
-Esse retorno e normal. Ele indica que o registry respondeu, mas exige autenticacao.
+Esse retorno é normal. Ele indica que o registry respondeu, mas exige autenticação.
 
 Valide a porta local do `docker-hosted`.
 
@@ -195,9 +204,9 @@ ss -lntp | egrep '8081|5000|5001|5002'
 
 ---
 
-## 6. Validar permissao do Zabbix para consultar Docker
+## 6. Validar permissão do Zabbix para consultar Docker
 
-O usuario `zabbix` precisa conseguir consultar o Docker.
+O usuário `zabbix` precisa conseguir consultar o Docker.
 
 Teste:
 
@@ -205,9 +214,9 @@ Teste:
 sudo -u zabbix docker ps
 ```
 
-Se listar os containers, esta correto.
+Se listar os containers, está correto.
 
-Se falhar, adicione o usuario `zabbix` ao grupo `docker`.
+Se falhar, adicione o usuário `zabbix` ao grupo `docker`.
 
 ```bash
 sudo usermod -aG docker zabbix
@@ -274,12 +283,11 @@ No host Docker HML, crie o arquivo:
 sudo vim /etc/zabbix/zabbix_agent2.d/nexus.conf
 ```
 
-Cole o conteudo abaixo:
+Cole o conteúdo abaixo:
 
 ```ini
 UserParameter=nexus.http.code,curl -k -s -o /dev/null -w "%{http_code}" https://nexus.jmsalles.homelab.br 2>/dev/null
 UserParameter=nexus.status.code,curl -k -s -o /dev/null -w "%{http_code}" https://nexus.jmsalles.homelab.br/service/rest/v1/status 2>/dev/null
-UserParameter=nexus.status.check.code,curl -k -s -o /dev/null -w "%{http_code}" https://nexus.jmsalles.homelab.br/service/rest/v1/status/check 2>/dev/null
 UserParameter=nexus.local.code,curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081 2>/dev/null
 UserParameter=nexus.registry.code,curl -k -s -o /dev/null -w "%{http_code}" https://registry.jmsalles.homelab.br/v2/ 2>/dev/null
 UserParameter=nexus.registry.local.code,curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/v2/ 2>/dev/null
@@ -292,26 +300,26 @@ UserParameter=nexus.logs.size,du -sb /home/jmsalles/nexus/nexus-data/log 2>/dev/
 UserParameter=nexus.blobs.size,du -sb /home/jmsalles/nexus/nexus-data/blobs 2>/dev/null | cut -f1
 ```
 
-Observacoes importantes:
+Observações importantes:
 
 ```text
-As chaves nexus.http.code, nexus.status.code, nexus.status.check.code e nexus.registry.code usam curl -k.
-Isso evita falha por certificado autoassinado ou CA interna nao instalada.
+As chaves nexus.http.code, nexus.status.code e nexus.registry.code usam curl -k.
+Isso evita falha por certificado autoassinado ou CA interna não instalada.
 ```
 
-A linha abaixo retorna `1` quando o container esta rodando e `0` quando esta parado ou removido.
+A linha abaixo retorna `1` quando o container está rodando e `0` quando está parado ou removido.
 
 ```ini
 UserParameter=nexus.container.running[*],docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null | grep -qx true && printf 1 || printf 0
 ```
 
-Caso o comando `nc` nao exista, instale o pacote:
+Caso o comando `nc` não exista, instale o pacote:
 
 ```bash
 sudo dnf install -y nmap-ncat
 ```
 
-Ajuste a permissao.
+Ajuste a permissão.
 
 ```bash
 sudo chmod 644 /etc/zabbix/zabbix_agent2.d/nexus.conf
@@ -361,18 +369,6 @@ Resultado esperado:
 
 ```text
 nexus.status.code [s|200]
-```
-
-Teste o status check.
-
-```bash
-zabbix_agent2 -t nexus.status.check.code
-```
-
-Resultado esperado:
-
-```text
-nexus.status.check.code [s|200]
 ```
 
 Teste o HTTP local.
@@ -483,15 +479,15 @@ Resultado esperado:
 nexus.container.restart[nexus] [s|0]
 ```
 
-ou o numero atual de restarts.
+ou o número atual de restarts.
 
-Teste o tamanho do diretorio base.
+Teste o tamanho do diretório base.
 
 ```bash
 zabbix_agent2 -t nexus.dir.size
 ```
 
-Teste o tamanho do diretorio de dados.
+Teste o tamanho do diretório de dados.
 
 ```bash
 zabbix_agent2 -t nexus.data.size
@@ -555,21 +551,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.3 Status check API
-
-| Campo               | Valor                          |
-| ------------------- | ------------------------------ |
-| Name                | `Nexus: Status check API code` |
-| Type                | `Zabbix agent`                 |
-| Key                 | `nexus.status.check.code`      |
-| Type of information | `Numeric unsigned`             |
-| Update interval     | `1m`                           |
-| History             | `31d`                          |
-| Trends              | `365d`                         |
-
----
-
-## 10.4 HTTP local da interface web
+## 10.3 HTTP local da interface web
 
 | Campo               | Valor                                |
 | ------------------- | ------------------------------------ |
@@ -583,7 +565,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.5 Registry HTTPS status code
+## 10.4 Registry HTTPS status code
 
 | Campo               | Valor                                   |
 | ------------------- | --------------------------------------- |
@@ -597,7 +579,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.6 Registry local status code
+## 10.5 Registry local status code
 
 | Campo               | Valor                                        |
 | ------------------- | -------------------------------------------- |
@@ -611,7 +593,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.7 Porta local 8081
+## 10.6 Porta local 8081
 
 | Campo               | Valor                            |
 | ------------------- | -------------------------------- |
@@ -625,7 +607,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.8 Porta local 5001
+## 10.7 Porta local 5001
 
 | Campo               | Valor                                          |
 | ------------------- | ---------------------------------------------- |
@@ -639,7 +621,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.9 Porta local 5000
+## 10.8 Porta local 5000
 
 | Campo               | Valor                                         |
 | ------------------- | --------------------------------------------- |
@@ -653,7 +635,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.10 Porta local 5002
+## 10.9 Porta local 5002
 
 | Campo               | Valor                                         |
 | ------------------- | --------------------------------------------- |
@@ -667,7 +649,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.11 Container Nexus rodando
+## 10.10 Container Nexus rodando
 
 | Campo               | Valor                            |
 | ------------------- | -------------------------------- |
@@ -681,7 +663,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.12 Restart count do Nexus
+## 10.11 Restart count do Nexus
 
 | Campo               | Valor                                     |
 | ------------------- | ----------------------------------------- |
@@ -695,7 +677,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.13 Tamanho do diretorio base
+## 10.12 Tamanho do diretório base
 
 | Campo               | Valor                                              |
 | ------------------- | -------------------------------------------------- |
@@ -710,7 +692,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.14 Tamanho do nexus-data
+## 10.13 Tamanho do nexus-data
 
 | Campo               | Valor                                    |
 | ------------------- | ---------------------------------------- |
@@ -725,7 +707,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.15 Tamanho dos logs
+## 10.14 Tamanho dos logs
 
 | Campo               | Valor                     |
 | ------------------- | ------------------------- |
@@ -740,7 +722,7 @@ Crie os itens abaixo.
 
 ---
 
-## 10.16 Tamanho dos blobs
+## 10.15 Tamanho dos blobs
 
 | Campo               | Valor                      |
 | ------------------- | -------------------------- |
@@ -753,11 +735,11 @@ Crie os itens abaixo.
 | History             | `31d`                      |
 | Trends              | `365d`                     |
 
-Observacao:
+Observação:
 
 ```text
-Os itens 10.13, 10.14, 10.15 e 10.16 serao usados apenas para consulta e acompanhamento em Latest data.
-Nao criaremos triggers de capacidade para esses itens neste momento.
+Os itens 10.12, 10.13, 10.14 e 10.15 serão usados apenas para consulta e acompanhamento em Latest data.
+Não criaremos triggers de capacidade para esses itens neste momento.
 ```
 
 ---
@@ -840,7 +822,7 @@ Create trigger
 
 ---
 
-## 12.1 HTTPS do Nexus indisponivel
+## 12.1 HTTPS do Nexus indisponível
 
 | Campo                         | Valor                                                 |
 | ----------------------------- | ----------------------------------------------------- |
@@ -866,20 +848,7 @@ Create trigger
 
 ---
 
-## 12.3 Status check API falhando
-
-| Campo                         | Valor                                                         |
-| ----------------------------- | ------------------------------------------------------------- |
-| Name                          | `Nexus: Status check API falhando`                            |
-| Severity                      | `High`                                                        |
-| Expression                    | `last(/Template Nexus JMSalles/nexus.status.check.code)<>200` |
-| OK event generation           | `Expression`                                                  |
-| PROBLEM event generation mode | `Single`                                                      |
-| Enabled                       | Sim                                                           |
-
----
-
-## 12.4 HTTP local 8081 falhando
+## 12.3 HTTP local 8081 falhando
 
 | Campo                         | Valor                                                  |
 | ----------------------------- | ------------------------------------------------------ |
@@ -892,7 +861,7 @@ Create trigger
 
 ---
 
-## 12.5 Registry HTTPS falhando
+## 12.4 Registry HTTPS falhando
 
 | Campo                         | Valor                                                                                                                 |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -903,15 +872,15 @@ Create trigger
 | PROBLEM event generation mode | `Single`                                                                                                              |
 | Enabled                       | Sim                                                                                                                   |
 
-Observacao:
+Observação:
 
 ```text
-O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
+O código 401 é esperado quando o registry está ativo e exige autenticação.
 ```
 
 ---
 
-## 12.6 Registry local 5001 falhando
+## 12.5 Registry local 5001 falhando
 
 | Campo                         | Valor                                                                                                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -924,7 +893,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.7 Porta local 8081 indisponivel
+## 12.6 Porta local 8081 indisponível
 
 | Campo                         | Valor                                                    |
 | ----------------------------- | -------------------------------------------------------- |
@@ -937,7 +906,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.8 Porta local 5001 indisponivel
+## 12.7 Porta local 5001 indisponível
 
 | Campo                         | Valor                                                    |
 | ----------------------------- | -------------------------------------------------------- |
@@ -950,7 +919,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.9 Porta local 5000 indisponivel
+## 12.8 Porta local 5000 indisponível
 
 | Campo                         | Valor                                                    |
 | ----------------------------- | -------------------------------------------------------- |
@@ -963,7 +932,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.10 Porta local 5002 indisponivel
+## 12.9 Porta local 5002 indisponível
 
 | Campo                         | Valor                                                    |
 | ----------------------------- | -------------------------------------------------------- |
@@ -976,7 +945,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.11 Container Nexus parado
+## 12.10 Container Nexus parado
 
 | Campo                         | Valor                                                             |
 | ----------------------------- | ----------------------------------------------------------------- |
@@ -989,7 +958,7 @@ O codigo 401 e esperado quando o registry esta ativo e exige autenticacao.
 
 ---
 
-## 12.12 Container Nexus reiniciou recentemente
+## 12.11 Container Nexus reiniciou recentemente
 
 | Campo                         | Valor                                                               |
 | ----------------------------- | ------------------------------------------------------------------- |
@@ -1008,7 +977,7 @@ Se os itens de Simple check foram criados no template, crie as triggers abaixo.
 
 ---
 
-## 13.1 Porta externa 8081 indisponivel
+## 13.1 Porta externa 8081 indisponível
 
 | Campo      | Valor                                                                      |
 | ---------- | -------------------------------------------------------------------------- |
@@ -1018,7 +987,7 @@ Se os itens de Simple check foram criados no template, crie as triggers abaixo.
 
 ---
 
-## 13.2 Porta externa 5001 indisponivel
+## 13.2 Porta externa 5001 indisponível
 
 | Campo      | Valor                                                                      |
 | ---------- | -------------------------------------------------------------------------- |
@@ -1028,7 +997,7 @@ Se os itens de Simple check foram criados no template, crie as triggers abaixo.
 
 ---
 
-## 13.3 Porta externa 5000 indisponivel
+## 13.3 Porta externa 5000 indisponível
 
 | Campo      | Valor                                                                      |
 | ---------- | -------------------------------------------------------------------------- |
@@ -1038,7 +1007,7 @@ Se os itens de Simple check foram criados no template, crie as triggers abaixo.
 
 ---
 
-## 13.4 Porta externa 5002 indisponivel
+## 13.4 Porta externa 5002 indisponível
 
 | Campo      | Valor                                                                      |
 | ---------- | -------------------------------------------------------------------------- |
@@ -1088,20 +1057,23 @@ Crie o Step 2:
 | Timeout               | `10s`                                                      |
 | Required status codes | `200`                                                      |
 
-Crie o Step 3:
-
-| Campo                 | Valor                                                            |
-| --------------------- | ---------------------------------------------------------------- |
-| Name                  | `Nexus Status Check`                                             |
-| URL                   | `https://nexus.jmsalles.homelab.br/service/rest/v1/status/check` |
-| Timeout               | `10s`                                                            |
-| Required status codes | `200`                                                            |
-
-Observacao sobre certificado autoassinado:
+Não crie step para:
 
 ```text
-Como o Zabbix roda em container e a CA raiz ainda nao sera instalada,
-o Web Scenario pode falhar caso a validacao SSL esteja habilitada.
+https://nexus.jmsalles.homelab.br/service/rest/v1/status/check
+```
+
+Motivo:
+
+```text
+Esse endpoint retornou HTTP 403 no ambiente sem autenticação.
+```
+
+Observação sobre certificado autoassinado:
+
+```text
+Como o Zabbix roda em container e a CA raiz ainda não será instalada,
+o Web Scenario pode falhar caso a validação SSL esteja habilitada.
 ```
 
 Neste momento, deixe desmarcado no Web Scenario:
@@ -1145,7 +1117,7 @@ Opcionalmente, crie uma trigger para tempo de resposta alto:
 | Expression | `last(/docker-hml.jmsalles.homelab.br/web.test.time[Nexus - HTTPS,Nexus Home,resp])>5` |
 | Enabled    | Sim                                                                                    |
 
-Observacao:
+Observação:
 
 ```text
 O valor 5 representa 5 segundos.
@@ -1185,10 +1157,10 @@ Crie o Step 1:
 | Timeout               | `10s`                                      |
 | Required status codes | `401`                                      |
 
-Observacao:
+Observação:
 
 ```text
-O codigo 401 e esperado porque o registry esta ativo e exigindo autenticacao.
+O código 401 é esperado porque o registry está ativo e exigindo autenticação.
 ```
 
 Deixe desmarcado:
@@ -1216,7 +1188,7 @@ Crie a trigger:
 
 | Campo                         | Valor                                                                            |
 | ----------------------------- | -------------------------------------------------------------------------------- |
-| Name                          | `Nexus: Web scenario Registry HTTPS falhando`                                    |
+| Name                          | `https://registry.jmsalles.homelab.br/v2/`                                    |
 | Severity                      | `High`                                                                           |
 | Expression                    | `last(/docker-hml.jmsalles.homelab.br/web.test.fail[Nexus Registry - HTTPS])<>0` |
 | OK event generation           | `Expression`                                                                     |
@@ -1241,12 +1213,11 @@ Host: docker-hml.jmsalles.homelab.br
 Name: Nexus
 ```
 
-Voce deve ver itens como:
+Você deve ver itens como:
 
 ```text
 Nexus: HTTPS status code
 Nexus: Status API code
-Nexus: Status check API code
 Nexus: HTTP local 8081 status code
 Nexus: Registry HTTPS /v2 status code
 Nexus: Registry local 5001 /v2 status code
@@ -1265,7 +1236,6 @@ Valores esperados:
 | ---------------------------------------------- | -------------- |
 | `Nexus: HTTPS status code`                     | `200`          |
 | `Nexus: Status API code`                       | `200`          |
-| `Nexus: Status check API code`                 | `200`          |
 | `Nexus: HTTP local 8081 status code`           | `200`          |
 | `Nexus: Registry HTTPS /v2 status code`        | `401`          |
 | `Nexus: Registry local 5001 /v2 status code`   | `401`          |
@@ -1341,7 +1311,7 @@ nexus.container.running[nexus] [s|1]
 
 ## 20. Teste com container removido
 
-Se voce usar `docker compose down`, o container sera removido.
+Se você usar `docker compose down`, o container será removido.
 
 ```bash
 cd /home/jmsalles/nexus
@@ -1390,10 +1360,6 @@ zabbix_get -s 192.168.31.37 -k nexus.status.code
 ```
 
 ```bash
-zabbix_get -s 192.168.31.37 -k nexus.status.check.code
-```
-
-```bash
 zabbix_get -s 192.168.31.37 -k nexus.registry.code
 ```
 
@@ -1423,7 +1389,7 @@ ou:
 1
 ```
 
-Para instalar o `zabbix_get`, caso necessario:
+Para instalar o `zabbix_get`, caso necessário:
 
 ```bash
 sudo dnf install -y zabbix-get
@@ -1446,7 +1412,7 @@ curl: (60) SSL certificate problem: unable to get local issuer certificate
 Causa:
 
 ```text
-O certificado do Nexus ou Registry e interno/autoassinado, ou foi assinado por uma CA interna que ainda nao esta instalada como confiavel no host ou container.
+O certificado do Nexus ou Registry é interno/autoassinado, ou foi assinado por uma CA interna que ainda não está instalada como confiável no host ou container.
 ```
 
 Contorno adotado neste tutorial:
@@ -1459,14 +1425,14 @@ curl -k -I https://nexus.jmsalles.homelab.br
 curl -k -I https://registry.jmsalles.homelab.br/v2/
 ```
 
-Nos UserParameters, o contorno ja esta aplicado:
+Nos UserParameters, o contorno já está aplicado:
 
 ```ini
 UserParameter=nexus.http.code,curl -k -s -o /dev/null -w "%{http_code}" https://nexus.jmsalles.homelab.br 2>/dev/null
 UserParameter=nexus.registry.code,curl -k -s -o /dev/null -w "%{http_code}" https://registry.jmsalles.homelab.br/v2/ 2>/dev/null
 ```
 
-No Web Scenario do Zabbix, enquanto a CA nao for instalada no container do Zabbix, deixe desmarcado:
+No Web Scenario do Zabbix, enquanto a CA não for instalada no container do Zabbix, deixe desmarcado:
 
 ```text
 SSL verify peer
@@ -1483,10 +1449,10 @@ Erro comum:
 Value of type "string" is not suitable for value type "Numeric (unsigned)"
 ```
 
-Causa provavel:
+Causa provável:
 
 ```text
-O UserParameter esta retornando valor com quebra de linha ou texto indevido.
+O UserParameter está retornando valor com quebra de linha ou texto indevido.
 ```
 
 Valide o arquivo:
@@ -1515,7 +1481,7 @@ zabbix_agent2 -t 'nexus.container.running[nexus]'
 
 ---
 
-## 22.3 Container esta rodando, mas item retorna 0
+## 22.3 Container está rodando, mas item retorna 0
 
 Valide o Docker puro:
 
@@ -1541,7 +1507,7 @@ Resultado esperado:
 1
 ```
 
-Se funcionar no shell e nao funcionar no Agent, reinicie o Agent.
+Se funcionar no shell e não funcionar no Agent, reinicie o Agent.
 
 ```bash
 sudo systemctl restart zabbix-agent2
@@ -1555,9 +1521,9 @@ zabbix_agent2 -t 'nexus.container.running[nexus]'
 
 ---
 
-## 22.4 Zabbix nao consegue consultar Docker
+## 22.4 Zabbix não consegue consultar Docker
 
-Teste com o usuario `zabbix`.
+Teste com o usuário `zabbix`.
 
 ```bash
 sudo -u zabbix docker ps
@@ -1605,13 +1571,13 @@ docker compose ps
 docker compose logs --tail=100 nginx
 ```
 
-Valide a configuracao.
+Valide a configuração.
 
 ```bash
 docker compose exec nginx nginx -t
 ```
 
-Recarregue, se necessario.
+Recarregue, se necessário.
 
 ```bash
 docker compose exec nginx nginx -s reload
@@ -1625,10 +1591,6 @@ Teste manualmente.
 
 ```bash
 curl -k -v https://nexus.jmsalles.homelab.br/service/rest/v1/status
-```
-
-```bash
-curl -k -v https://nexus.jmsalles.homelab.br/service/rest/v1/status/check
 ```
 
 Valide o Nexus.
@@ -1645,6 +1607,18 @@ docker compose ps
 docker compose logs --tail=100 nexus
 ```
 
+Não usar este endpoint para monitoramento sem autenticação:
+
+```text
+/service/rest/v1/status/check
+```
+
+Motivo:
+
+```text
+No ambiente atual, ele retornou HTTP 403.
+```
+
 ---
 
 ## 22.7 Registry retorna diferente de 401
@@ -1655,7 +1629,7 @@ Teste manualmente.
 curl -k -I https://registry.jmsalles.homelab.br/v2/
 ```
 
-Se retornar `401`, esta correto.
+Se retornar `401`, está correto.
 
 Se retornar `502`, valide o Nginx e a porta local.
 
@@ -1683,7 +1657,7 @@ docker compose -f /home/jmsalles/nginx/docker-compose.yml logs --tail=100 nginx
 
 ## 22.8 Porta 5001 retorna 0
 
-Valide se a porta esta aberta.
+Valide se a porta está aberta.
 
 ```bash
 ss -lntp | grep 5001
@@ -1717,7 +1691,7 @@ ou:
 
 ## 22.9 Tamanho de logs ou blobs retorna vazio
 
-Valide se os diretorios existem.
+Valide se os diretórios existem.
 
 ```bash
 ls -lah /home/jmsalles/nexus/nexus-data
@@ -1731,7 +1705,7 @@ ls -lah /home/jmsalles/nexus/nexus-data/log
 ls -lah /home/jmsalles/nexus/nexus-data/blobs
 ```
 
-Se o diretorio ainda nao existir, o Nexus pode ainda nao ter criado esses dados.
+Se o diretório ainda não existir, o Nexus pode ainda não ter criado esses dados.
 
 ---
 
@@ -1745,25 +1719,24 @@ Se o diretorio ainda nao existir, o Nexus pode ainda nao ter criado esses dados.
 | UserParameters testados localmente                          | Pendente |
 | Item HTTPS criado                                           | Pendente |
 | Item Status API criado                                      | Pendente |
-| Item Status Check API criado                                | Pendente |
 | Item HTTP local 8081 criado                                 | Pendente |
 | Item Registry HTTPS criado                                  | Pendente |
 | Item Registry local 5001 criado                             | Pendente |
 | Itens de portas 8081, 5000, 5001 e 5002 criados             | Pendente |
 | Item container `nexus` criado                               | Pendente |
 | Item restart count criado                                   | Pendente |
-| Itens de tamanho de diretorio/logs/blobs criados            | Pendente |
-| Triggers criadas ate o item 12.12                           | Pendente |
-| Web Scenario do Nexus criado                                | Pendente |
+| Itens de tamanho de diretório/logs/blobs criados            | Pendente |
+| Triggers criadas até o item 12.11                           | Pendente |
+| Web Scenario do Nexus criado sem `/status/check`            | Pendente |
 | Web Scenario do Registry criado                             | Pendente |
-| Validacao SSL desabilitada nos Web Scenarios                | Pendente |
+| Validação SSL desabilitada nos Web Scenarios                | Pendente |
 | Teste de parada do Nexus validado                           | Pendente |
 
 ---
 
 ## 24. Resumo final
 
-O monitoramento do Nexus ficara dividido em cinco camadas:
+O monitoramento do Nexus ficará dividido em cinco camadas:
 
 ```text
 Disponibilidade externa
@@ -1778,11 +1751,11 @@ Registry Docker
 |
 registry.jmsalles.homelab.br/v2/
 Porta 5001
-Codigo esperado 401
+Código esperado 401
 ```
 
 ```text
-Servico local
+Serviço local
 |
 HTTP 8081
 Portas 5000, 5001, 5002
@@ -1796,33 +1769,44 @@ restart count
 ```
 
 ```text
-Capacidade basica
+Capacidade básica
 |
 nexus-data
 logs
 blobs
 ```
 
-Os principais itens customizados sao:
+Os principais itens customizados são:
 
 ```text
 nexus.container.running[nexus]
 nexus.http.code
 nexus.status.code
-nexus.status.check.code
 nexus.registry.code
 nexus.registry.local.code
 nexus.tcp.local[8081]
 nexus.tcp.local[5001]
 ```
 
-Como o certificado e interno/autoassinado, este tutorial usa `curl -k` nos UserParameters e recomenda deixar `SSL verify peer` e `SSL verify host` desmarcados nos Web Scenarios ate que a CA raiz seja instalada no container do Zabbix.
+O item abaixo foi removido:
 
-Os itens de capacidade foram mantidos para consulta, mas sem triggers neste momento, para evitar ruido operacional.
+```text
+nexus.status.check.code
+```
 
-Com esse modelo, o Zabbix consegue identificar se a falha esta no container, no Nexus, no registry Docker, no Nginx reverse proxy, nas portas locais ou apenas na validacao do certificado.
+Motivo:
+
+```text
+O endpoint /service/rest/v1/status/check retornou HTTP 403 sem autenticação no ambiente atual.
+```
+
+Como o certificado é interno/autoassinado, este tutorial usa `curl -k` nos UserParameters e recomenda deixar `SSL verify peer` e `SSL verify host` desmarcados nos Web Scenarios até que a CA raiz seja instalada no container do Zabbix.
+
+Os itens de capacidade foram mantidos para consulta, mas sem triggers neste momento, para evitar ruído operacional.
+
+Com esse modelo, o Zabbix consegue identificar se a falha está no container, no Nexus, no registry Docker, no Nginx reverse proxy, nas portas locais ou apenas na validação do certificado.
 
 Criado por Jeferson Salles
-LinkedIn: https://www.linkedin.com/in/jmsalles/
+LinkedIn: [https://www.linkedin.com/in/jmsalles/](https://www.linkedin.com/in/jmsalles/)
 E-mail: [jefersonmattossalles@gmail.com](mailto:jefersonmattossalles@gmail.com)
-GitHub: https://github.com/jmsalles/
+GitHub: [https://github.com/jmsalles/](https://github.com/jmsalles/)
