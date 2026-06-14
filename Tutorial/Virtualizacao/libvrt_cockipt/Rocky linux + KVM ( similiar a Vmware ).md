@@ -128,7 +128,7 @@ nmcli --fields NAME,DEVICE connection show --active
 ```bash
 nmcli connection add type bridge ifname br0 con-name br0 ipv4.method auto ipv6.method ignore
 nmcli connection modify br0 bridge.stp no bridge.forward-delay 0
-nmcli connection add type bridge-slave ifname enp0s31f6 master br0
+nmcli connection add type bridge-slave ifname "<OLD>"  master br0
 nmcli connection modify "<OLD>" connection.autoconnect no
 nmcli connection down "<OLD>"; nmcli connection up br0
 ip -br a | egrep 'br0|enp0s31f6'  # br0 deve ter IP (ex.: 192.168.31.230/24)
