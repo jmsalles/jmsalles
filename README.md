@@ -1,6 +1,6 @@
 # Jeferson Mattos de Salles
 
-> Analista de Produção Sênior | Linux | Middleware | Containers | Cloud | DevOps
+> Arquiteto de Infraestrutura Sr | Linux | Middleware | Containers | Cloud | DevOps
 
 Profissional de Tecnologia da Informação com mais de 20 anos de experiência em infraestrutura, sustentação de ambientes críticos, automação e computação em nuvem.
 
@@ -31,7 +31,7 @@ Também sou entusiasta e militante dos movimentos de inclusão digital e Softwar
 
 ### Montreal, cliente ANS
 
-#### Analista de Produção Sênior
+#### Arquiteto de Infraestrutura Sr
 
 - Sustentação dos ambientes de desenvolvimento, homologação e produção.
 - Administração de servidores Linux, JBoss EAP, containers e aplicações corporativas.
@@ -42,7 +42,7 @@ Também sou entusiasta e militante dos movimentos de inclusão digital e Softwar
 
 ### TIVIT, cliente Petrobras/CENPES
 
-#### Atuação N3 em Infraestrutura e Aplicações
+#### Analista de SI Sr
 
 - Sustentação de ambientes corporativos críticos.
 - Administração e troubleshooting de Linux, containers e WebLogic.
@@ -122,6 +122,7 @@ Também sou entusiasta e militante dos movimentos de inclusão digital e Softwar
 - AWS Certified Developer - Associate, DVA-C02
 - Microsoft Certified: Azure Administrator Associate, AZ-104
 - Microsoft Certified: Azure Solutions Architect Expert, AZ-305
+- Microsoft Certified: DevOps Engineer Expert, AZ-400
 - HashiCorp Certified: Terraform Associate
 - GitHub Foundations
 
