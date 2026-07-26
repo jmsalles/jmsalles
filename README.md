@@ -1,79 +1,179 @@
-<h3 align="left">👩‍💻  Sobre Mim</h3>
+# Jeferson Mattos de Salles
 
-###
+> Analista de Produção Sênior | Linux | Middleware | Containers | Cloud | DevOps
 
-<p align="left">Sou Jeferson Salles, especialista em Linux, DevOps, Cloud AWS e Infraestrutura, com mais de 15 anos de experiência em ambientes corporativos de missão crítica. Atuo com administração de sistemas Red Hat, automação com Ansible, containers, pipelines CI/CD, ambientes virtualizados com VMware e soluções em nuvem com AWS.<br><br>🚀 Atualmente trabalho como SysAdmin no CEPEL, onde sou responsável por:<br>- Gerenciamento de clusters HPC com PBS  <br>- Implementação de infraestrutura como código (IaC) com Ansible e Terraform  <br>- Suporte de ambientes Linux de alta disponibilidade  <br>- Pipelines CI/CD, automação e gerenciamento de servidores VMware  <br>- Gerência da infraestrutura on-premisse com foco em desempenho, segurança e continuidade operacional<br>- Provisionamento de infraestrutura para execução do modelo NEWAVE<br><br><br>💼 Experiências Anteriores<br><br>🔹 TIVIT (Petrobras)  <br>Analista Linux Sr e Especialista, prestando suporte de 3º nível em ambientes críticos da Petrobras. Responsável pelo tratamento de incidentes em aplicações críticas e de alta disponibilidade, troubleshooting avançado, monitoramento com Dynatrace e Zabbix, administração de containers em OpenShift, automação com Ansible e gestão de infraestrutura AWS.<br><br>🔹 SONDA  <br>Arquiteto de Infraestrutura responsável por ambientes de Middleware e containers. Administrava aplicações em JBoss, servidores Nginx e clusters OKD/OpenShift, com foco em disponibilidade, segurança e padronização de ambientes críticos.<br><br>🔹 FEMAR (Fundação de Apoio à Marinha)  <br>Analista de Infraestrutura Sênior, administrando servidores Linux, Windows Server e a plataforma Moodle para mais de 22 mil usuários. Responsável por rotinas de backup com Bacula, segurança de rede, Active Directory, switches Cisco, e virtualização com VMware.<br><br><br>🎓 Certificações<br><br>🐧 Linux  <br>- LPIC-1: Linux Administrator  <br>- LPIC-2: Linux Engineer  <br>- RHCSA: Red Hat Certified System Administrator  <br>- RHCE: Red Hat Certified Engineer (com foco em Ansible)  <br><br>🔧 DevOps & Automação  <br>- GitHub Foundations  <br>- Red Hat Certified Specialist in Containers (EX188)  <br><br>☁️ Cloud  <br>- AWS Certified Solutions Architect – Associate (SAA-C03)  <br>- Oracle Cloud Infrastructure Foundations  <br><br>📦 Containers & Orquestração  <br>- Red Hat Certified Specialist in Containers (EX188)  <br>- Certified Calico Operator: eBPF  <br>- Conhecimento em Docker, Podman, Kubernetes, OpenShift  <br><br>🔐 Segurança  <br>- Fortinet NSE 1: Network Security Associate  <br>- Fortinet NSE 2: The Evolution of Cybersecurity  <br>- Fortinet NSE 3: Fortinet Core Products  <br><br>🌐 Redes  <br>- Cisco CCNA: Routing and Switching  <br><br>💻 Middleware  <br>- RHCJA: Red Hat Certified JBoss Administrator  <br><br>Veja todas as minhas certificações no  <br>https://www.credly.com/users/jeferson-mattos-de-salles<br><br><br>🧰 Tecnologias que domino<br><br>Linux (Red Hat, Ubuntu, SUSE) · Ansible · Terraform · VMware · Docker · Kubernetes · Zabbix · Git · Jenkins · Apache/Nginx · MySQL/Oracle · Shell Script · Segurança · AD/SSSD · Backup (Bacula) · OpenShift · Dynatrace · CI/CD · IaC · AWS<br><br>📂 Repositório em destaque<br><br>Explore meus playbooks, tutoriais e experiências no dia a dia de um Analista DevOps:  <br>https://github.com/jmsalles/IaC</p>
+Profissional de Tecnologia da Informação com mais de 20 anos de experiência em infraestrutura, sustentação de ambientes críticos, automação e computação em nuvem.
 
-###
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Jeferson_Salles-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jmsalles/)
+[![Credly](https://img.shields.io/badge/Credly-Credenciais-FF6B00?style=for-the-badge&logo=credly&logoColor=white)](https://www.credly.com/users/jeferson-mattos-de-salles)
+[![E-mail](https://img.shields.io/badge/E--mail-Contato-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:jefersonmattossalles@gmail.com)
 
-<div align="center">
-  <a href="https://www.linkedin.com/in/jmsalles/" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=LinkedIn&logo=linkedin&label=&color=0077B5&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="linkedin logo"  />
-  </a>
-  <a href="jefersonmattossalles@gmail.com" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=Gmail&logo=gmail&label=&color=D14836&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="gmail logo"  />
-  </a>
-  <a href="+5521987530901" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=Whatsapp&logo=whatsapp&label=&color=25D366&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="whatsapp logo"  />
-  </a>
-</div>
+![Localização](https://img.shields.io/badge/Mesquita,_RJ-Brasil-009C3B?style=flat-square)
+![Experiência](https://img.shields.io/badge/Experiência-20%2B_anos-1F6FEB?style=flat-square)
+![Foco](https://img.shields.io/badge/Foco-Ambientes_críticos-CC0000?style=flat-square)
+![Comunidade](https://img.shields.io/badge/Comunidade-Software_Livre-FCC624?style=flat-square&logo=linux&logoColor=black)
 
-###
+## Sobre mim
 
-<h3 align="left">🛠 Linguagens e ferramentas</h3>
+Sou especialista em infraestrutura, Linux, middleware, containers, automação e Cloud, com experiência em ambientes corporativos de missão crítica e operações de alta disponibilidade.
 
-###
+Minha atuação combina sustentação de produção, troubleshooting avançado, administração de servidores, observabilidade, infraestrutura como código e automação de processos. Trabalho com ambientes on-premises e multicloud, apoiando aplicações desde desenvolvimento e homologação até produção.
 
-<div align="left">
-  <img src="https://skillicons.dev/icons?i=aws" height="40" alt="amazonwebservices logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=kubernetes" height="40" alt="kubernetes logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/docker/2496ED" height="40" alt="docker logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=ansible" height="40" alt="ansible logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/apache/apache-original.svg" height="40" alt="apache logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=kafka" height="40" alt="apachekafka logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=arduino" height="40" alt="arduino logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=azure" height="40" alt="azure logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/debian/A81D33" height="40" alt="debian logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/gentoo/gentoo-plain.svg" height="40" alt="gentoo logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=jenkins" height="40" alt="jenkins logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg" height="40" alt="linux logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/moodle/moodle-original.svg" height="40" alt="moodle logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/mysql/4479A1" height="40" alt="mysql logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nginx/nginx-original.svg" height="40" alt="nginx logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/packer/packer-original.svg" height="40" alt="packer logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/podman/podman-original.svg" height="40" alt="podman logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/redhat/EE0000" height="40" alt="redhat logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/ubuntu/E95420" height="40" alt="ubuntu logo"  />
-  <img width="12" />
-  <img src="https://cdn.simpleicons.org/vagrant/1868F2" height="40" alt="vagrant logo"  />
-</div>
+Também sou entusiasta e militante dos movimentos de inclusão digital e Software Livre. Acredito no compartilhamento de conhecimento como ferramenta de transformação profissional e social.
 
-###
+## Destaques profissionais
 
-<h3 align="left">🔥   My Stats :</h3>
+| Experiência | Certificações | Formação | Especialidades |
+| --- | --- | --- | --- |
+| Mais de 20 anos em TI | LPIC-3, Red Hat, AWS, Azure e outras | 2 graduações e 7 pós-graduações | Linux, Middleware, DevOps, Cloud e Infraestrutura |
 
-###
+## Atuação profissional atual
 
-<div align="center">
-  <img src="https://streak-stats.demolab.com?user=jmsalles&locale=en&mode=daily&theme=dark&hide_border=false&border_radius=5&order=3" height="220" alt="streak graph"  />
-</div>
+### Montreal, cliente ANS
 
-###
+#### Analista de Produção Sênior
+
+- Sustentação dos ambientes de desenvolvimento, homologação e produção.
+- Administração de servidores Linux, JBoss EAP, containers e aplicações corporativas.
+- Atuação com Kubernetes, Docker, Portainer, Traefik, Vault, ArgoCD e MinIO.
+- Troubleshooting de infraestrutura e aplicações em ambientes críticos.
+- Automação de atividades operacionais e evolução de processos de CI/CD.
+- Observabilidade, análise de incidentes, continuidade e disponibilidade dos serviços.
+
+### TIVIT, cliente Petrobras/CENPES
+
+#### Atuação N3 em Infraestrutura e Aplicações
+
+- Sustentação de ambientes corporativos críticos.
+- Administração e troubleshooting de Linux, containers e WebLogic.
+- Tratamento de incidentes complexos envolvendo infraestrutura e aplicações.
+- Análise de desempenho, disponibilidade e integração entre componentes.
+- Apoio técnico especializado às equipes de operação e desenvolvimento.
+
+## Experiências anteriores selecionadas
+
+### CEPEL/Eletrobras
+
+#### Analista de Tecnologias Digitais, Industriais e Dados II | SysAdmin
+
+- Administração de ambientes Linux e clusters HPC com PBS.
+- Automação e infraestrutura como código com Ansible e Terraform.
+- Administração de VMware ESXi e vCenter.
+- Sustentação de ambientes de alta disponibilidade.
+- Provisionamento de infraestrutura para execução do modelo NEWAVE.
+
+### SONDA, cliente Caixa Econômica Federal
+
+#### Arquiteto de Infraestrutura
+
+- Administração e arquitetura de ambientes de middleware e containers.
+- Sustentação de JBoss, Nginx e clusters OKD/OpenShift.
+- Padronização de ambientes com foco em disponibilidade, segurança e desempenho.
+
+### FEMAR, Fundação de Apoio à Marinha
+
+#### Analista de Infraestrutura Sênior
+
+- Administração de servidores Linux e Windows Server.
+- Sustentação da plataforma Moodle para mais de 22 mil usuários.
+- Administração de Active Directory, switches Cisco e VMware.
+- Operação de rotinas de backup com Bacula e controles de segurança de rede.
+
+## Competências técnicas
+
+| Área | Tecnologias e práticas |
+| --- | --- |
+| Sistemas operacionais | RHEL, CentOS, Rocky Linux, Oracle Linux, Ubuntu, SUSE e Windows Server |
+| Middleware e Web | JBoss EAP, WildFly, WebLogic, Tomcat, Apache HTTP Server, Nginx e Traefik |
+| Containers e orquestração | Docker, Podman, Kubernetes, OpenShift, Portainer e Helm |
+| Automação e IaC | Ansible, Terraform e Shell Script |
+| CI/CD e GitOps | GitHub Actions, Jenkins, GitLab CI e ArgoCD |
+| Observabilidade | Zabbix, Dynatrace, Grafana, Prometheus, Loki e Alloy |
+| Cloud | AWS, Microsoft Azure, Google Cloud e Oracle Cloud Infrastructure |
+| Virtualização e infraestrutura | VMware ESXi, vSphere, Proxmox, NFS, CIFS e alta disponibilidade |
+| Redes e segurança | VLAN, NAT, firewall, F5, Fortinet, HAProxy, AD, SSSD e certificados digitais |
+| Dados e serviços | Oracle Database, MySQL, MariaDB, Vault, MinIO, Gitea e Nexus |
+
+## Certificações em destaque
+
+### Linux e Open Source
+
+- LPIC-1: Linux Administrator
+- LPIC-2: Linux Engineer
+- LPIC-3 300: Mixed Environments
+- LPIC-3 303: Security
+- LPIC-3 305: Virtualization and Containerization
+- LPIC-3 306: High Availability and Storage Clusters
+- LPI DevOps Tools Engineer
+
+### Red Hat
+
+- Red Hat Certified System Administrator, RHCSA
+- Red Hat Certified Engineer, RHCE
+- Red Hat Certified JBoss Administrator, RHCJA
+- Red Hat Certified Specialist in Containers
+- Certificações avançadas em automação com Ansible
+
+### Cloud e DevOps
+
+- AWS Certified Solutions Architect - Professional, SAP-C02
+- AWS Certified Solutions Architect - Associate, SAA-C03
+- AWS Certified SysOps Administrator - Associate, SOA-C03
+- AWS Certified Developer - Associate, DVA-C02
+- Microsoft Certified: Azure Administrator Associate, AZ-104
+- Microsoft Certified: Azure Solutions Architect Expert, AZ-305
+- HashiCorp Certified: Terraform Associate
+- GitHub Foundations
+
+### Redes, segurança e outras tecnologias
+
+- Cisco Certified Network Associate, CCNA
+- Fortinet NSE 1, NSE 2 e NSE 3
+- Oracle Cloud, AI e Data Platform Foundations
+- Certified Calico Operator: eBPF
+
+Consulte o [inventário organizado de certificações e credenciais](CERTIFICACOES.md) ou acesse meu [perfil público no Credly](https://www.credly.com/users/jeferson-mattos-de-salles).
+
+## Formação acadêmica
+
+### Graduações
+
+- Gestão da Tecnologia da Informação
+- Análise e Desenvolvimento de Sistemas
+
+### Pós-graduações
+
+- Ciência de Dados
+- Segurança de Redes de Computadores
+- Governança e Gestão da Tecnologia da Informação
+- Computação em Nuvem
+- Defesa Cibernética
+- Informática na Educação
+- Docência do Ensino Superior, EAD e Novas Tecnologias Educacionais
+
+## Projetos e conteúdo técnico
+
+| Projeto | Descrição |
+| --- | --- |
+| [IaC Hub](https://github.com/jmsalles/IaC) | Playbooks Ansible, scripts, exemplos de Terraform e materiais para automação de infraestrutura |
+| [Tutoriais](https://github.com/jmsalles/tutoriais) | Artigos, laboratórios e procedimentos práticos sobre Linux, AWS, DevOps, containers e infraestrutura |
+| Laboratório pessoal | Ambiente com Proxmox, Kubernetes, Docker, Gitea, Nexus, Vault, MinIO, ArgoCD, Grafana, Loki e Alloy |
+
+## Software Livre e comunidade
+
+Além da atuação profissional, participo de iniciativas ligadas à inclusão digital e ao Software Livre. Produzo tutoriais baseados em situações práticas, compartilho experiências de infraestrutura e incentivo a formação de novos profissionais de tecnologia.
+
+Meu objetivo é transformar experiências reais de operação, troubleshooting e automação em conteúdos que possam ajudar outras pessoas a aprender e evoluir.
+
+<!-- Adicionar aqui o artigo da série FOSS Projects & People após a publicação oficial pela LPI. -->
+
+## Contato
+
+- [LinkedIn](https://www.linkedin.com/in/jmsalles/)
+- [GitHub](https://github.com/jmsalles)
+- [Credly](https://www.credly.com/users/jeferson-mattos-de-salles)
+- [E-mail](mailto:jefersonmattossalles@gmail.com)
+
+---
+
+Se algum projeto ou tutorial foi útil para você, deixe uma estrela no repositório e compartilhe o conteúdo. Sugestões, issues e contribuições são sempre bem-vindas.
