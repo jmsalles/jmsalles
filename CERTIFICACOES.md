@@ -44,6 +44,7 @@ Este documento apresenta as principais certificações e credenciais profissiona
 | --- | --- |
 | Microsoft Certified: Azure Administrator Associate | AZ-104 |
 | Microsoft Certified: Azure Solutions Architect Expert | AZ-305 |
+| Microsoft Certified: DevOps Engineer Expert | AZ-400 |
 
 ## HashiCorp e GitHub
 
