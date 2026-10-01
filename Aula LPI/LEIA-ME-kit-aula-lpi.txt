@@ -1,0 +1,16 @@
+Kit de aula modelo para submissao LPI Approved Trainer
+
+Arquivos:
+1. aula_lpi_linux_essentials_primeiros_passos.pptx
+   Slides da aula com notas do apresentador.
+
+2. roteiro_aula_modelo_lpi_linux_essentials.docx
+   Roteiro completo, comandos, perguntas planejadas, respostas e checklist de gravacao/submissao.
+
+3. laboratorio_linux_essentials.sh
+   Script opcional com os comandos de laboratorio. Use apenas para treinar; na gravacao, o ideal e digitar os comandos manualmente e explicar cada etapa.
+
+Recomendacao:
+- Grave uma versao de teste de 5 minutos para validar audio, fonte do terminal e enquadramento.
+- No video final, nao pareca que esta lendo o roteiro. Use o roteiro como teatro ensaiado.
+- Mostre verificacoes de entendimento antes de avancar, pois isso faz parte da avaliacao de gestao de aula.
